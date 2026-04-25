@@ -13,3 +13,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "java-reference-index"
+
+include("reference-index-core")

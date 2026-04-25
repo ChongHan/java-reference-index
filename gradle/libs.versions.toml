@@ -1,0 +1,12 @@
+[versions]
+agrona = "2.4.1"
+assertj = "3.27.7"
+eclipse-jdt-core = "3.45.0"
+junit = "6.0.3"
+
+[libraries]
+agrona = { module = "org.agrona:agrona", version.ref = "agrona" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+eclipse-jdt-core = { module = "org.eclipse.jdt:org.eclipse.jdt.core", version.ref = "eclipse-jdt-core" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }

@@ -9,12 +9,12 @@ java {
 }
 
 dependencies {
-    api("org.eclipse.jdt:org.eclipse.jdt.core:3.42.0")
+    api(libs.eclipse.jdt.core)
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.13.4")
-    testImplementation("org.assertj:assertj-core:3.27.6")
-    testImplementation("org.agrona:agrona:2.2.1")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.agrona)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.test {

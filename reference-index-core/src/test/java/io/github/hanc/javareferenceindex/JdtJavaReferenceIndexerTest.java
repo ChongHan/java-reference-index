@@ -99,7 +99,11 @@ class JdtJavaReferenceIndexerTest {
         ));
 
         assertThat(singleFile(index).binaryReferences())
-            .containsExactly(new BinaryReference("org.agrona.collections.IntArrayList", "org.agrona:agrona:2.4.1"));
+            .containsExactly(new BinaryReference(
+                "org.agrona.collections.IntArrayList",
+                "org.agrona:agrona:2.4.1",
+                "org.agrona.collections.IntArrayList"
+            ));
     }
 
     @Test
@@ -111,7 +115,11 @@ class JdtJavaReferenceIndexerTest {
         ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of(classesDir)));
 
         assertThat(singleFile(index).binaryReferences())
-            .containsExactly(new BinaryReference("external.dep.CompiledDependency", classesDir.getFileName().toString()));
+            .containsExactly(new BinaryReference(
+                "external.dep.CompiledDependency",
+                classesDir.getFileName().toString(),
+                "external.dep.CompiledDependency"
+            ));
     }
 
     private static SourceReference sourceReference(String qualifiedName, Path sourceFile) {

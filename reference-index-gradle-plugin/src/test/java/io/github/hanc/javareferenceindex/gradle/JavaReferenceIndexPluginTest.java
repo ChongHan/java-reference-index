@@ -66,11 +66,12 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.getOutput())
             .contains("file=example.App")
             .contains("binaryRef=org.agrona.collections.IntArrayList")
-            .contains("target=org.agrona:agrona:2.4.1");
+            .contains("target=org.agrona.collections.IntArrayList")
+            .contains("targetProject=org.agrona:agrona:2.4.1");
         assertThat(referencesCsv(projectDir))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
-                ":,src/main/java/example/App.java,binary,,org.agrona:agrona:2.4.1"
+                ":,src/main/java/example/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList"
             );
     }
 

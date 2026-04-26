@@ -28,7 +28,7 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
     @Override
     public Optional<BinaryReference> resolveBinary(String qualifiedName, ProjectIndexingRequest request) {
         return binaryEntryFor(qualifiedName, request)
-            .map(classpathEntry -> new BinaryReference(qualifiedName, classpathEntry.target()));
+            .map(classpathEntry -> new BinaryReference(qualifiedName, classpathEntry.target(), qualifiedName));
     }
 
     private static Optional<ResolvedSource> sourcePathFor(String qualifiedName, ProjectIndexingRequest request) {

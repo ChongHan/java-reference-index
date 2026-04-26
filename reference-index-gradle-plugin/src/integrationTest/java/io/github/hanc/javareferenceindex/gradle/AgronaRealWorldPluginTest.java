@@ -9,6 +9,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ class AgronaRealWorldPluginTest {
 
         Map<String, String> environment = new HashMap<>(System.getenv());
         environment.put("BUILD_JAVA_HOME", System.getProperty("java.home"));
+        deleteIfExists(agrona.resolve(".gradle/configuration-cache"));
 
         var result = GradleRunner.create()
             .withProjectDir(agrona.toFile())
@@ -62,6 +64,7 @@ class AgronaRealWorldPluginTest {
                 "--init-script", initScript.toString(),
                 "--no-parallel",
                 "--configuration-cache",
+                "--rerun-tasks",
                 "--quiet",
                 "--stacktrace",
                 ":agrona:indexJavaReferences",
@@ -88,8 +91,8 @@ class AgronaRealWorldPluginTest {
             .anySatisfy(row -> {
                 assertThat(row.sourceProject()).isEqualTo(":agrona-agent");
                 assertThat(row.targetKind()).isEqualTo("binary");
-                assertThat(row.targetProject()).isEmpty();
-                assertThat(row.target()).isEqualTo("net.bytebuddy:byte-buddy:1.18.8");
+                assertThat(row.targetProject()).isEqualTo("net.bytebuddy:byte-buddy:1.18.8");
+                assertThat(row.target()).isEqualTo("net.bytebuddy.agent.builder.AgentBuilder");
             });
     }
 
@@ -116,8 +119,8 @@ class AgronaRealWorldPluginTest {
                     assertThat(row.targetProject()).isNotBlank();
                     assertThat(agronaRoot.resolve(row.target())).isRegularFile();
                 } else if ("binary".equals(row.targetKind())) {
-                    assertThat(row.targetProject()).isEmpty();
-                    assertThat(row.target()).contains(":");
+                    assertThat(row.targetProject()).isNotBlank();
+                    assertThat(row.target()).isNotBlank();
                 }
             });
         return rows;
@@ -127,6 +130,17 @@ class AgronaRealWorldPluginTest {
         String[] columns = line.split(",", -1);
         assertThat(columns).hasSize(5);
         return new CsvRow(columns[0], columns[1], columns[2], columns[3], columns[4]);
+    }
+
+    private static void deleteIfExists(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return;
+        }
+        try (var paths = Files.walk(path)) {
+            for (Path candidate : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(candidate);
+            }
+        }
     }
 
     private static String pluginClasspathFiles() {

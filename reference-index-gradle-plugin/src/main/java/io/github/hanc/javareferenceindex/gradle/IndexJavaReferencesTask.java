@@ -140,12 +140,13 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
                 reference.targetProject().path()
             ));
             file.binaryReferences().forEach(reference -> getLogger().lifecycle(
-                "project={} sourceSet={} file={} binaryRef={} target={}",
+                "project={} sourceSet={} file={} binaryRef={} target={} targetProject={}",
                 sourceSet.projectPath(),
                 sourceSet.sourceSetName(),
                 sourceType,
                 reference.qualifiedName(),
-                reference.target()
+                reference.target(),
+                reference.targetProject()
             ));
             file.unresolvedReferences().forEach(reference -> getLogger().lifecycle(
                 "project={} sourceSet={} file={} unresolvedRef={}",

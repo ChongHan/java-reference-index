@@ -40,7 +40,11 @@ class StandardReferenceIndexCsvWriterTest {
             List.of(new FileReferenceSet(
                 appFile,
                 List.of(new SourceReference("shared.LibraryType", libFile, lib, new SourceSetCoordinates("main"))),
-                List.of(new BinaryReference("org.agrona.collections.IntArrayList", "org.agrona:agrona:2.4.1")),
+                List.of(new BinaryReference(
+                    "org.agrona.collections.IntArrayList",
+                    "org.agrona:agrona:2.4.1",
+                    "org.agrona.collections.IntArrayList"
+                )),
                 List.of(new UnresolvedReference("MissingType"))
             ))
         );
@@ -52,7 +56,7 @@ class StandardReferenceIndexCsvWriterTest {
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
                 ":apps:service-a,apps/service-a/src/main/java/app/App.java,source,:libs:shared,libs/shared/src/main/java/shared/LibraryType.java",
-                ":apps:service-a,apps/service-a/src/main/java/app/App.java,binary,,org.agrona:agrona:2.4.1",
+                ":apps:service-a,apps/service-a/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList",
                 ":apps:service-a,apps/service-a/src/main/java/app/App.java,,,"
             );
     }
@@ -91,7 +95,8 @@ class StandardReferenceIndexCsvWriterTest {
         SourceReference sourceReference = new SourceReference("lib.LibraryType", libFile, lib, main);
         BinaryReference binaryReference = new BinaryReference(
             "org.agrona.collections.IntArrayList",
-            "org.agrona:agrona:2.4.1"
+            "org.agrona:agrona:2.4.1",
+            "org.agrona.collections.IntArrayList"
         );
         ProjectIndex index = new ProjectIndex(
             app,
@@ -111,7 +116,7 @@ class StandardReferenceIndexCsvWriterTest {
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java",
-                ":app,app/src/main/java/app/App.java,binary,,org.agrona:agrona:2.4.1",
+                ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList",
                 ":app,app/src/main/java/app/App.java,,,"
             );
     }
@@ -128,7 +133,11 @@ class StandardReferenceIndexCsvWriterTest {
             List.of(new FileReferenceSet(
                 appFile,
                 List.of(),
-                List.of(new BinaryReference("example.Binary", "example:quoted,\"dependency\":1.0")),
+                List.of(new BinaryReference(
+                    "example.Binary",
+                    "example:quoted,\"dependency\":1.0",
+                    "example.Binary"
+                )),
                 List.of()
             ))
         );
@@ -139,7 +148,7 @@ class StandardReferenceIndexCsvWriterTest {
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
-                ":app,app/src/main/java/app/App.java,binary,,\"example:quoted,\"\"dependency\"\":1.0\""
+                ":app,app/src/main/java/app/App.java,binary,\"example:quoted,\"\"dependency\"\":1.0\",example.Binary"
             );
     }
 

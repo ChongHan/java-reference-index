@@ -42,7 +42,13 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
             }
 
             for (var reference : file.binaryReferences()) {
-                rows.add(new CsvReferenceRow(sourceProject, sourcePath, "binary", "", reference.target()));
+                rows.add(new CsvReferenceRow(
+                    sourceProject,
+                    sourcePath,
+                    "binary",
+                    reference.targetProject(),
+                    reference.target()
+                ));
             }
 
             for (var ignored : file.unresolvedReferences()) {

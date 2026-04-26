@@ -86,6 +86,40 @@ class JdtJavaReferenceIndexerTest {
     }
 
     @Test
+    void index_withSourceReferenceAlsoOnClasspath_recordsOnlySourceReference() {
+        Path fixtureRoot = fixturePath("jdt-indexer-source-reference-also-on-classpath");
+        Path mainSourceRoot = fixtureRoot.resolve("src/main/java");
+        Path testSourceRoot = fixtureRoot.resolve("src/test/java");
+        Path sourceFile = testSourceRoot.resolve("example/UsesSharedMainType.java");
+        Path targetFile = mainSourceRoot.resolve("example/SharedMainType.java").toAbsolutePath().normalize();
+        Path classesDir = compileSourceFile(mainSourceRoot.resolve("example/SharedMainType.java"));
+        ProjectCoordinates project = new ProjectCoordinates(":fixture");
+        SourceSetCoordinates test = new SourceSetCoordinates("test");
+
+        ProjectIndex index = indexer.index(new ProjectIndexingRequest(
+            project,
+            test,
+            List.of(
+                new SourceRoot(mainSourceRoot, project, new SourceSetCoordinates("main")),
+                new SourceRoot(testSourceRoot, project, test)
+            ),
+            List.of(sourceFile),
+            List.of(ClasspathEntry.of(classesDir, "main")),
+            JavaCompilerSettings.java21()
+        ));
+
+        FileReferenceSet references = singleFile(index);
+        assertThat(references.sourceReferences())
+            .containsExactly(new SourceReference(
+                "example.SharedMainType",
+                targetFile,
+                project,
+                new SourceSetCoordinates("main")
+            ));
+        assertThat(references.binaryReferences()).isEmpty();
+    }
+
+    @Test
     void index_withAgronaReference_resolvesClasspathJar() {
         Path sourceRoot = fixtureSourceRoot("jdt-indexer-agrona-reference");
         Path sourceFile = sourceRoot.resolve("example/UsesAgrona.java");
@@ -150,6 +184,21 @@ class JdtJavaReferenceIndexerTest {
                 }
                 """
             );
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        assertThat(compiler).as("Tests must run on a JDK, not a JRE").isNotNull();
+        int result = compiler.run(null, null, null, "-d", classesDir.toString(), sourceFile.toString());
+        assertThat(result).isZero();
+        return classesDir;
+    }
+
+    private Path compileSourceFile(Path sourceFile) {
+        Path classesDir = tempDir.resolve(sourceFile.getFileName().toString() + "-classes").toAbsolutePath().normalize();
+        try {
+            java.nio.file.Files.createDirectories(classesDir);
         } catch (java.io.IOException e) {
             throw new IllegalStateException(e);
         }

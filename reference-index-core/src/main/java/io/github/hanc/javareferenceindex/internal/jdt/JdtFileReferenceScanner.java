@@ -239,12 +239,18 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         }
 
         private boolean recordSourceReference(String qualifiedName) {
-            return referenceResolver.resolveSource(qualifiedName, sourceFile, request)
-                .map(reference -> sourceReferences.putIfAbsent(qualifiedName, reference))
-                .isPresent();
+            var reference = referenceResolver.resolveSource(qualifiedName, sourceFile, request);
+            reference.ifPresent(sourceReference -> {
+                sourceReferences.putIfAbsent(qualifiedName, sourceReference);
+                binaryReferences.remove(qualifiedName);
+            });
+            return reference.isPresent();
         }
 
         private void recordBinaryReference(String qualifiedName) {
+            if (sourceReferences.containsKey(qualifiedName)) {
+                return;
+            }
             referenceResolver.resolveBinary(qualifiedName, request)
                 .ifPresent(reference -> binaryReferences.putIfAbsent(qualifiedName, reference));
         }

@@ -67,12 +67,12 @@ class AgronaRealWorldPluginTest {
                 "--rerun-tasks",
                 "--quiet",
                 "--stacktrace",
-                ":agrona:indexJavaReferences",
-                ":agrona-agent:indexJavaReferences"
+                ":indexJavaReferences"
             )
             .withEnvironment(environment)
             .build();
 
+        assertThat(result.task(":indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
         assertThat(result.task(":agrona:indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
         assertThat(result.task(":agrona-agent:indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
 

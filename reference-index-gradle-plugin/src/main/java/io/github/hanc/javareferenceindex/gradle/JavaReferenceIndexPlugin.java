@@ -17,13 +17,17 @@ import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.SourceSet;
+import org.gradle.api.tasks.TaskProvider;
 
 public class JavaReferenceIndexPlugin implements Plugin<Project> {
+    static final String INDEX_TASK_NAME = "indexJavaReferences";
+
     @Override
     public void apply(Project project) {
-        var taskProvider = project.getTasks().register("indexJavaReferences", IndexJavaReferencesTask.class, task ->
-            task.getOutputDirectory().set(project.getLayout().getBuildDirectory().dir("reference-index"))
-        );
+        var taskProvider = indexTask(project);
+        if (!project.equals(project.getRootProject())) {
+            indexTask(project.getRootProject()).configure(task -> task.dependsOn(taskProvider));
+        }
 
         project.getPlugins().withType(JavaPlugin.class, javaPlugin ->
             project.afterEvaluate(evaluatedProject ->
@@ -33,6 +37,18 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
                 })
             )
         );
+    }
+
+    private static TaskProvider<IndexJavaReferencesTask> indexTask(Project project) {
+        var tasks = project.getTasks();
+        if (tasks.getNames().contains(INDEX_TASK_NAME)) {
+            return tasks.named(INDEX_TASK_NAME, IndexJavaReferencesTask.class);
+        }
+        return tasks.register(INDEX_TASK_NAME, IndexJavaReferencesTask.class, task -> {
+            task.getOutputDirectory().set(project.getLayout().getBuildDirectory().dir("reference-index"));
+            task.setGroup("verification");
+            task.setDescription("Indexes Java references for all projects with the Java reference index plugin applied.");
+        });
     }
 
     private static List<?> compileJavaTasks(Project project) {

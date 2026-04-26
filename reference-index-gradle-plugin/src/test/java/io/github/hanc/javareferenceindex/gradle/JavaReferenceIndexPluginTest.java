@@ -57,6 +57,25 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void indexJavaReferences_fromRootProject_indexesAllSubprojects() throws IOException {
+        copyFixture("multi-project");
+
+        var result = gradle(":indexJavaReferences");
+
+        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":app:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":lib:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":unused:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir.resolve("app")))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java"
+            );
+        assertThat(projectDir.resolve("lib/build/reference-index/main-references.csv")).isRegularFile();
+        assertThat(projectDir.resolve("aaa-unused/build/reference-index/main-references.csv")).isRegularFile();
+    }
+
+    @Test
     void indexJavaReferences_withExternalDependency_printsBinaryReference() throws IOException {
         copyFixture("external-dependency");
 

@@ -48,7 +48,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             ))
             .toList();
         List<ClasspathEntry> classpathEntries = sourceSet.classpathEntries().stream()
-            .map(classpathEntry -> ClasspathEntry.of(Path.of(classpathEntry)))
+            .map(classpathEntry -> ClasspathEntry.of(Path.of(classpathEntry.path()), classpathEntry.target()))
             .toList();
 
         var request = new ProjectIndexingRequest(
@@ -115,7 +115,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         String rootDir,
         List<SourceRootSpec> sourceRoots,
         List<String> sourceFiles,
-        List<String> classpathEntries
+        List<ClasspathEntrySpec> classpathEntries
     ) implements Serializable {
         public SourceSetSpec {
             sourceRoots = List.copyOf(sourceRoots);
@@ -125,4 +125,6 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
     }
 
     public record SourceRootSpec(String path, String projectPath, String sourceSetName) implements Serializable {}
+
+    public record ClasspathEntrySpec(String path, String target) implements Serializable {}
 }

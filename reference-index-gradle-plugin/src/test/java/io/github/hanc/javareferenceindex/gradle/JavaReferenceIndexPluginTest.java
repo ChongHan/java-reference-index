@@ -54,7 +54,7 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.getOutput())
             .contains("file=example.App")
             .contains("binaryRef=org.agrona.collections.IntArrayList")
-            .contains("agrona");
+            .contains("target=org.agrona:agrona:2.4.1");
     }
 
     private org.gradle.testkit.runner.BuildResult gradle(String... arguments) {

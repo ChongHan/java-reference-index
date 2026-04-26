@@ -4,9 +4,14 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.component.ComponentIdentifier;
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
+import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.SourceSet;
@@ -40,7 +45,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             project.getRootDir().toPath().toAbsolutePath().normalize().toString(),
             sourceRoots(project, sourceSet),
             sourceFiles(sourceSet),
-            classpathEntries(sourceSet)
+            classpathEntries(project, sourceSet)
         );
     }
 
@@ -86,13 +91,35 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             .toList();
     }
 
-    private static List<String> classpathEntries(SourceSet sourceSet) {
+    private static List<IndexJavaReferencesTask.ClasspathEntrySpec> classpathEntries(Project project, SourceSet sourceSet) {
+        Map<String, String> artifactTargets = artifactTargets(project, sourceSet);
         return sourceSet.getCompileClasspath().getFiles().stream()
             .map(File::toPath)
             .map(Path::toAbsolutePath)
             .map(Path::normalize)
-            .map(Path::toString)
-            .sorted()
+            .map(path -> new IndexJavaReferencesTask.ClasspathEntrySpec(
+                path.toString(),
+                artifactTargets.getOrDefault(path.toString(), path.getFileName().toString())
+            ))
+            .sorted(Comparator.comparing(IndexJavaReferencesTask.ClasspathEntrySpec::path))
             .toList();
+    }
+
+    private static Map<String, String> artifactTargets(Project project, SourceSet sourceSet) {
+        var configuration = project.getConfigurations().getByName(sourceSet.getCompileClasspathConfigurationName());
+        return configuration.getIncoming().getArtifacts().getArtifacts().stream()
+            .collect(Collectors.toMap(
+                artifact -> artifact.getFile().toPath().toAbsolutePath().normalize().toString(),
+                JavaReferenceIndexPlugin::targetFor,
+                (first, second) -> first
+            ));
+    }
+
+    private static String targetFor(ResolvedArtifactResult artifact) {
+        ComponentIdentifier componentIdentifier = artifact.getId().getComponentIdentifier();
+        if (componentIdentifier instanceof ModuleComponentIdentifier module) {
+            return module.getGroup() + ":" + module.getModule() + ":" + module.getVersion();
+        }
+        return componentIdentifier.getDisplayName();
     }
 }

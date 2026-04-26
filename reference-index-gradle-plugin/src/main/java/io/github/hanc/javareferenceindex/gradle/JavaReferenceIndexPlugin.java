@@ -3,6 +3,7 @@ package io.github.hanc.javareferenceindex.gradle;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,10 +26,23 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         );
 
         project.getPlugins().withType(JavaPlugin.class, javaPlugin ->
-            project.getGradle().projectsEvaluated(gradle ->
-                taskProvider.configure(task -> task.setSourceSets(sourceSetSpecs(project)))
+            project.afterEvaluate(evaluatedProject ->
+                taskProvider.configure(task -> {
+                    task.setSourceSets(sourceSetSpecs(evaluatedProject));
+                    task.dependsOn(compileJavaTasks(evaluatedProject));
+                })
             )
         );
+    }
+
+    private static List<?> compileJavaTasks(Project project) {
+        JavaPluginExtension java = project.getExtensions().findByType(JavaPluginExtension.class);
+        if (java == null) {
+            return List.of();
+        }
+        return java.getSourceSets().stream()
+            .map(sourceSet -> project.getTasks().named(sourceSet.getCompileJavaTaskName()))
+            .toList();
     }
 
     private static List<IndexJavaReferencesTask.SourceSetSpec> sourceSetSpecs(Project project) {
@@ -37,29 +51,39 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             return List.of();
         }
         return java.getSourceSets().stream()
-            .map(sourceSet -> sourceSetSpec(project, sourceSet))
+            .flatMap(sourceSet -> {
+                List<String> sourceFiles = sourceFiles(sourceSet);
+                if (sourceFiles.isEmpty()) {
+                    return Stream.empty();
+                }
+                return Stream.of(sourceSetSpec(project, sourceSet, sourceFiles));
+            })
             .toList();
     }
 
-    private static IndexJavaReferencesTask.SourceSetSpec sourceSetSpec(Project project, SourceSet sourceSet) {
+    private static IndexJavaReferencesTask.SourceSetSpec sourceSetSpec(
+        Project project,
+        SourceSet sourceSet,
+        List<String> sourceFiles
+    ) {
         return new IndexJavaReferencesTask.SourceSetSpec(
             project.getPath(),
             sourceSet.getName(),
             project.getRootDir().toPath().toAbsolutePath().normalize().toString(),
             sourceRoots(project, sourceSet),
-            sourceFiles(sourceSet),
+            sourceFiles,
             classpathEntries(project, sourceSet)
         );
     }
 
     private static List<IndexJavaReferencesTask.SourceRootSpec> sourceRoots(Project project, SourceSet sourceSet) {
-        var currentSourceRoots = sourceSet.getAllJava().getSrcDirs().stream()
-            .filter(File::isDirectory)
-            .map(sourceRoot -> new IndexJavaReferencesTask.SourceRootSpec(
-                sourceRoot.toPath().toAbsolutePath().normalize().toString(),
-                project.getPath(),
-                sourceSet.getName()
-            ));
+        Set<Path> compileClasspath = sourceSet.getCompileClasspath().getFiles().stream()
+            .map(JavaReferenceIndexPlugin::normalizedPath)
+            .collect(Collectors.toSet());
+
+        var currentSourceRoots = sourceRootSpecs(project, sourceSet, false);
+
+        var currentProjectClasspathSourceRoots = projectSourceRoots(project, compileClasspath, false);
 
         var dependencySourceRoots = projectDependencyPaths(project, sourceSet).stream()
             .map(project.getRootProject()::findProject)
@@ -71,19 +95,70 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
                 if (java == null) {
                     return Stream.<IndexJavaReferencesTask.SourceRootSpec>empty();
                 }
-                return java.getSourceSets().stream()
-                    .flatMap(candidateSourceSet -> candidateSourceSet.getAllJava().getSrcDirs().stream()
-                        .filter(File::isDirectory)
-                        .map(sourceRoot -> new IndexJavaReferencesTask.SourceRootSpec(
-                            sourceRoot.toPath().toAbsolutePath().normalize().toString(),
-                            candidateProject.getPath(),
-                            candidateSourceSet.getName()
-                        )));
+                return projectSourceRoots(candidateProject, compileClasspath, true);
             });
 
-        return Stream.concat(currentSourceRoots, dependencySourceRoots)
+        return Stream.of(currentSourceRoots, currentProjectClasspathSourceRoots, dependencySourceRoots)
+            .flatMap(sourceRoots -> sourceRoots)
             .sorted(Comparator.comparing(IndexJavaReferencesTask.SourceRootSpec::path))
+            .distinct()
             .toList();
+    }
+
+    private static Stream<IndexJavaReferencesTask.SourceRootSpec> projectSourceRoots(
+        Project project,
+        Set<Path> compileClasspath,
+        boolean includeMainFallback
+    ) {
+        JavaPluginExtension java = project.getExtensions().findByType(JavaPluginExtension.class);
+        if (java == null) {
+            return Stream.empty();
+        }
+        List<SourceSet> matchingSourceSets = java.getSourceSets().stream()
+            .filter(candidateSourceSet -> outputIsOnClasspath(candidateSourceSet, compileClasspath))
+            .toList();
+        if (!matchingSourceSets.isEmpty()) {
+            return matchingSourceSets.stream()
+                .flatMap(candidateSourceSet -> sourceRootSpecs(project, candidateSourceSet, true));
+        }
+        if (!includeMainFallback) {
+            return Stream.empty();
+        }
+        return java.getSourceSets().matching(candidateSourceSet -> SourceSet.MAIN_SOURCE_SET_NAME.equals(candidateSourceSet.getName()))
+            .stream()
+            .flatMap(candidateSourceSet -> sourceRootSpecs(project, candidateSourceSet, false));
+    }
+
+    private static boolean outputIsOnClasspath(SourceSet sourceSet, Set<Path> compileClasspath) {
+        return sourceSetOutputPaths(sourceSet).anyMatch(compileClasspath::contains);
+    }
+
+    private static Stream<Path> sourceSetOutputPaths(SourceSet sourceSet) {
+        Stream<Path> classesDirs = sourceSet.getOutput().getClassesDirs().getFiles().stream()
+            .map(JavaReferenceIndexPlugin::normalizedPath);
+        File resourcesDir = sourceSet.getOutput().getResourcesDir();
+        if (resourcesDir == null) {
+            return classesDirs;
+        }
+        return Stream.concat(classesDirs, Stream.of(normalizedPath(resourcesDir)));
+    }
+
+    private static Stream<IndexJavaReferencesTask.SourceRootSpec> sourceRootSpecs(
+        Project project,
+        SourceSet sourceSet,
+        boolean includeMissingDirectories
+    ) {
+        return sourceSet.getAllJava().getSrcDirs().stream()
+            .filter(sourceRoot -> includeMissingDirectories || sourceRoot.isDirectory())
+            .map(sourceRoot -> new IndexJavaReferencesTask.SourceRootSpec(
+                normalizedPath(sourceRoot).toString(),
+                project.getPath(),
+                sourceSet.getName()
+            ));
+    }
+
+    private static Path normalizedPath(File file) {
+        return file.toPath().toAbsolutePath().normalize();
     }
 
     private static List<String> projectDependencyPaths(Project project, SourceSet sourceSet) {
@@ -113,6 +188,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
     private static List<IndexJavaReferencesTask.ClasspathEntrySpec> classpathEntries(Project project, SourceSet sourceSet) {
         Map<String, String> artifactTargets = artifactTargets(project, sourceSet);
         return sourceSet.getCompileClasspath().getFiles().stream()
+            .filter(File::exists)
             .map(File::toPath)
             .map(Path::toAbsolutePath)
             .map(Path::normalize)

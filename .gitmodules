@@ -1,0 +1,3 @@
+[submodule "reference-index-gradle-plugin/src/integrationTest/fixtures/real-world-projects/agrona"]
+	path = reference-index-gradle-plugin/src/integrationTest/fixtures/real-world-projects/agrona
+	url = https://github.com/aeron-io/agrona.git

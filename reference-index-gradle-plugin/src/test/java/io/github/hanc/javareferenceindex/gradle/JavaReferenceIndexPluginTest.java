@@ -74,6 +74,49 @@ class JavaReferenceIndexPluginTest {
             );
     }
 
+    @Test
+    void indexJavaReferences_withTestSourceSet_resolvesMainSourceReference() throws IOException {
+        copyFixture("test-source-set");
+
+        var result = gradle("indexJavaReferences");
+
+        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("project=:")
+            .contains("sourceSet=test")
+            .contains("file=example.MainTypeUsage")
+            .contains("sourceRef=example.MainType")
+            .contains("targetProject=:")
+            .doesNotContain("unresolvedRef=MainType");
+        assertThat(referencesCsv(projectDir, "test"))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target",
+                ":,src/test/java/example/MainTypeUsage.java,source,:,src/main/java/example/MainType.java"
+            );
+    }
+
+    @Test
+    void indexJavaReferences_withGeneratedSourceOnTestClasspath_resolvesGeneratedSourceReference() throws IOException {
+        copyFixture("generated-source-set");
+
+        var result = gradle("indexJavaReferences");
+
+        assertThat(result.task(":compileGeneratedJava").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("project=:")
+            .contains("sourceSet=test")
+            .contains("file=example.GeneratedTypeUsage")
+            .contains("sourceRef=example.generated.GeneratedType")
+            .contains("target=build/generated-src/example/generated/GeneratedType.java")
+            .doesNotContain("unresolvedRef=GeneratedType");
+        assertThat(referencesCsv(projectDir, "test"))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target",
+                ":,src/test/java/example/GeneratedTypeUsage.java,source,:,build/generated-src/example/generated/GeneratedType.java"
+            );
+    }
+
     private org.gradle.testkit.runner.BuildResult gradle(String... arguments) {
         return GradleRunner.create()
             .withProjectDir(projectDir.toFile())

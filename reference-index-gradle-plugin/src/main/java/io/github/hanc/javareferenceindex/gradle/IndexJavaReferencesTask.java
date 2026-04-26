@@ -13,6 +13,7 @@ import io.github.hanc.javareferenceindex.model.SourceSetCoordinates;
 import java.io.Serializable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.gradle.api.DefaultTask;
@@ -92,6 +93,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
                 new ProjectCoordinates(sourceRoot.projectPath()),
                 new SourceSetCoordinates(sourceRoot.sourceSetName())
             ))
+            .filter(sourceRoot -> Files.isDirectory(sourceRoot.path()))
             .toList();
         List<ClasspathEntry> classpathEntries = sourceSet.classpathEntries().stream()
             .map(classpathEntry -> ClasspathEntry.of(Path.of(classpathEntry.path()), classpathEntry.target()))

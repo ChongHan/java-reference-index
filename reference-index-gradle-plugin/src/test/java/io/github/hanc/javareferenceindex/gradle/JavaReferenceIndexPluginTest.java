@@ -142,6 +142,46 @@ class JavaReferenceIndexPluginTest {
             .contains(":app,:lib,lib/src/main/java/lib/LibraryType.java");
     }
 
+    @Test
+    void queryJavaReferences_help_describesUsageAndSchema() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradle("help", "--task", "queryJavaReferences");
+
+        assertThat(result.task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("Query Java reference edges with DuckDB SQL so humans or coding agents can find exactly what a file")
+            .contains("references, or which files reference a target, without scanning the repository.")
+            .contains("This task runs indexJavaReferences first, so generated CSVs are current.")
+            .contains("Table: java_references.")
+            .contains("Schema: source_project, source_path, target_kind, target_project, target.")
+            .contains("Columns: source_project/source_path identify the referencing file; target_kind is source, binary, or empty;")
+            .contains("target_project is the target Gradle project path or library coordinate;")
+            .contains("target is the referenced source path or binary type.")
+            .contains("Example source row: :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java.")
+            .contains("Example binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.DirectBuffer.")
+            .contains("What this file references:")
+            .contains("select target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'")
+            .contains("Who references this file:")
+            .contains("select source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'")
+            .contains("Options")
+            .contains("--sql")
+            .contains("SQL query to run against the java_references table.");
+    }
+
+    @Test
+    void indexJavaReferences_help_describesOutputCsv() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradle("help", "--task", "indexJavaReferences");
+
+        assertThat(result.task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("Builds Java reference edge CSVs for humans and coding agents.")
+            .contains("queryJavaReferences runs this task automatically; run it directly only to generate CSVs without querying.")
+            .contains("Writes one CSV per Java source set to build/reference-index/<sourceSet>-references.csv.");
+    }
+
     private org.gradle.testkit.runner.BuildResult gradle(String... arguments) {
         return GradleRunner.create()
             .withProjectDir(projectDir.toFile())

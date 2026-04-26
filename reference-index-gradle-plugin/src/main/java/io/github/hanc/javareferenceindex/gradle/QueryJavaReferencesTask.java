@@ -17,6 +17,21 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.options.Option;
 
 public abstract class QueryJavaReferencesTask extends DefaultTask {
+    static final String TABLE_NAME = "java_references";
+    static final String SCHEMA = "source_project, source_path, target_kind, target_project, target";
+    static final String COLUMN_MEANING =
+        "source_project/source_path identify the referencing file; target_kind is source, binary, or empty; "
+            + "target_project is the target Gradle project path or library coordinate; "
+            + "target is the referenced source path or binary type";
+    static final String SOURCE_EXAMPLE_ROW =
+        ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java";
+    static final String BINARY_EXAMPLE_ROW =
+        ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.DirectBuffer";
+    static final String REFERENCES_QUERY =
+        "select target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'";
+    static final String BLAST_RADIUS_QUERY =
+        "select source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'";
+
     private String sql;
 
     @Input
@@ -28,6 +43,19 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
     @Option(option = "sql", description = "SQL query to run against the java_references table.")
     public void setSql(String sql) {
         this.sql = sql;
+    }
+
+    static String taskDescription() {
+        return "Query Java reference edges with DuckDB SQL so humans or coding agents can find exactly what a file "
+            + "references, or which files reference a target, without scanning the repository. "
+            + "This task runs indexJavaReferences first, so generated CSVs are current. "
+            + "Table: " + TABLE_NAME + ". "
+            + "Schema: " + SCHEMA + ". "
+            + "Columns: " + COLUMN_MEANING + ". "
+            + "Example source row: " + SOURCE_EXAMPLE_ROW + ". "
+            + "Example binary row: " + BINARY_EXAMPLE_ROW + ". "
+            + "What this file references: ./gradlew queryJavaReferences --sql \"" + REFERENCES_QUERY + "\". "
+            + "Who references this file: ./gradlew queryJavaReferences --sql \"" + BLAST_RADIUS_QUERY + "\".";
     }
 
     @InputFiles

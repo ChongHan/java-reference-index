@@ -41,7 +41,8 @@ class JavaReferenceIndexPluginTest {
             .contains("project=:app")
             .contains("file=app.App")
             .contains("sourceRef=lib.LibraryType")
-            .contains("targetProject=:lib");
+            .contains("targetProject=:lib")
+            .doesNotContain("targetProject=:unused");
     }
 
     @Test

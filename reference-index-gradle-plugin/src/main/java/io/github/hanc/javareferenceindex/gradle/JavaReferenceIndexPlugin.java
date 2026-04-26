@@ -11,6 +11,7 @@ import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
@@ -58,9 +59,12 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
                 sourceSet.getName()
             ));
 
-        var dependencySourceRoots = project.getRootProject().getAllprojects().stream()
-            .filter(candidateProject -> !candidateProject.equals(project))
+        var dependencySourceRoots = projectDependencyPaths(project, sourceSet).stream()
+            .map(project.getRootProject()::findProject)
             .flatMap(candidateProject -> {
+                if (candidateProject == null) {
+                    return Stream.<IndexJavaReferencesTask.SourceRootSpec>empty();
+                }
                 JavaPluginExtension java = candidateProject.getExtensions().findByType(JavaPluginExtension.class);
                 if (java == null) {
                     return Stream.<IndexJavaReferencesTask.SourceRootSpec>empty();
@@ -77,6 +81,19 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
 
         return Stream.concat(currentSourceRoots, dependencySourceRoots)
             .sorted(Comparator.comparing(IndexJavaReferencesTask.SourceRootSpec::path))
+            .toList();
+    }
+
+    private static List<String> projectDependencyPaths(Project project, SourceSet sourceSet) {
+        var configuration = project.getConfigurations().getByName(sourceSet.getCompileClasspathConfigurationName());
+        return configuration.getIncoming().getResolutionResult().getAllComponents().stream()
+            .map(component -> component.getId())
+            .filter(ProjectComponentIdentifier.class::isInstance)
+            .map(ProjectComponentIdentifier.class::cast)
+            .map(ProjectComponentIdentifier::getProjectPath)
+            .filter(projectPath -> !projectPath.equals(project.getPath()))
+            .distinct()
+            .sorted()
             .toList();
     }
 

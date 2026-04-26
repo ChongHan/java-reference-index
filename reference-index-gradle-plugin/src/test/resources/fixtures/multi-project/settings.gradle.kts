@@ -14,3 +14,5 @@ dependencyResolutionManagement {
 
 include("app")
 include("lib")
+include("unused")
+project(":unused").projectDir = file("aaa-unused")

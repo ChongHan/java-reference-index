@@ -18,17 +18,12 @@ class JavaReferenceIndexPluginTest {
     Path projectDir;
 
     @Test
-    void indexJavaReferences_withSingleProject_printsSourceReferences() throws IOException {
+    void indexJavaReferences_withSingleProject_writesSourceReferences() throws IOException {
         copyFixture("single-project");
 
         var result = gradle("indexJavaReferences");
 
         assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.getOutput())
-            .contains("project=:")
-            .contains("sourceSet=main")
-            .contains("file=example.App")
-            .contains("sourceRef=example.Helper");
         assertThat(referencesCsv(projectDir))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -37,18 +32,12 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_withProjectDependency_printsDependentProjectSourceReference() throws IOException {
+    void indexJavaReferences_withProjectDependency_writesDependentProjectSourceReference() throws IOException {
         copyFixture("multi-project");
 
         var result = gradle(":app:indexJavaReferences");
 
         assertThat(result.task(":app:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.getOutput())
-            .contains("project=:app")
-            .contains("file=app.App")
-            .contains("sourceRef=lib.LibraryType")
-            .contains("targetProject=:lib")
-            .doesNotContain("targetProject=:unused");
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -76,17 +65,12 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_withExternalDependency_printsBinaryReference() throws IOException {
+    void indexJavaReferences_withExternalDependency_writesBinaryReference() throws IOException {
         copyFixture("external-dependency");
 
         var result = gradle("indexJavaReferences");
 
         assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.getOutput())
-            .contains("file=example.App")
-            .contains("binaryRef=org.agrona.collections.IntArrayList")
-            .contains("target=org.agrona.collections.IntArrayList")
-            .contains("targetProject=org.agrona:agrona:2.4.1");
         assertThat(referencesCsv(projectDir))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -101,13 +85,6 @@ class JavaReferenceIndexPluginTest {
         var result = gradle("indexJavaReferences");
 
         assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.getOutput())
-            .contains("project=:")
-            .contains("sourceSet=test")
-            .contains("file=example.MainTypeUsage")
-            .contains("sourceRef=example.MainType")
-            .contains("targetProject=:")
-            .doesNotContain("unresolvedRef=MainType");
         assertThat(referencesCsv(projectDir, "test"))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -123,13 +100,6 @@ class JavaReferenceIndexPluginTest {
 
         assertThat(result.task(":compileGeneratedJava").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.getOutput())
-            .contains("project=:")
-            .contains("sourceSet=test")
-            .contains("file=example.GeneratedTypeUsage")
-            .contains("sourceRef=example.generated.GeneratedType")
-            .contains("target=build/generated-src/example/generated/GeneratedType.java")
-            .doesNotContain("unresolvedRef=GeneratedType");
         assertThat(referencesCsv(projectDir, "test"))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",

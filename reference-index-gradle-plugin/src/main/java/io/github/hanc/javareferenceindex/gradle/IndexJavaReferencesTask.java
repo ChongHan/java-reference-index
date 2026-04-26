@@ -109,7 +109,6 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         );
 
         var index = JavaReferenceIndexers.jdt().index(request);
-        logIndex(sourceSet, index);
         writeCsv(sourceSet, index);
     }
 
@@ -125,56 +124,6 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         } catch (IOException e) {
             throw new GradleException("Failed to write Java reference index CSV", e);
         }
-    }
-
-    private void logIndex(SourceSetSpec sourceSet, ProjectIndex index) {
-        index.files().forEach(file -> {
-            String sourceType = typeName(sourceSet.rootDir(), file.sourceFile());
-            file.sourceReferences().forEach(reference -> getLogger().lifecycle(
-                "project={} sourceSet={} file={} sourceRef={} target={} targetProject={}",
-                sourceSet.projectPath(),
-                sourceSet.sourceSetName(),
-                sourceType,
-                reference.qualifiedName(),
-                rootRelativePath(sourceSet.rootDir(), reference.sourceFile()),
-                reference.targetProject().path()
-            ));
-            file.binaryReferences().forEach(reference -> getLogger().lifecycle(
-                "project={} sourceSet={} file={} binaryRef={} target={} targetProject={}",
-                sourceSet.projectPath(),
-                sourceSet.sourceSetName(),
-                sourceType,
-                reference.qualifiedName(),
-                reference.target(),
-                reference.targetProject()
-            ));
-            file.unresolvedReferences().forEach(reference -> getLogger().lifecycle(
-                "project={} sourceSet={} file={} unresolvedRef={}",
-                sourceSet.projectPath(),
-                sourceSet.sourceSetName(),
-                sourceType,
-                reference.name()
-            ));
-        });
-    }
-
-    private static String typeName(String rootDir, Path sourceFile) {
-        return Path.of(rootDir)
-            .relativize(sourceFile.toAbsolutePath().normalize())
-            .toString()
-            .replace(File.separatorChar, '.')
-            .replaceFirst("^.*src\\.main\\.java\\.", "")
-            .replaceFirst("^.*src\\.test\\.java\\.", "")
-            .replaceFirst("\\.java$", "");
-    }
-
-    private static String rootRelativePath(String rootDir, Path path) {
-        Path root = Path.of(rootDir).toAbsolutePath().normalize();
-        Path normalized = path.toAbsolutePath().normalize();
-        if (normalized.startsWith(root)) {
-            return root.relativize(normalized).toString();
-        }
-        return normalized.toString();
     }
 
     public record SourceSetSpec(

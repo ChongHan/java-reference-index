@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.stream.Stream;
 import org.gradle.testkit.runner.GradleRunner;
 import org.gradle.testkit.runner.TaskOutcome;
@@ -28,6 +29,11 @@ class JavaReferenceIndexPluginTest {
             .contains("sourceSet=main")
             .contains("file=example.App")
             .contains("sourceRef=example.Helper");
+        assertThat(referencesCsv(projectDir))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target",
+                ":,src/main/java/example/App.java,source,:,src/main/java/example/Helper.java"
+            );
     }
 
     @Test
@@ -43,6 +49,11 @@ class JavaReferenceIndexPluginTest {
             .contains("sourceRef=lib.LibraryType")
             .contains("targetProject=:lib")
             .doesNotContain("targetProject=:unused");
+        assertThat(referencesCsv(projectDir.resolve("app")))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java"
+            );
     }
 
     @Test
@@ -56,6 +67,11 @@ class JavaReferenceIndexPluginTest {
             .contains("file=example.App")
             .contains("binaryRef=org.agrona.collections.IntArrayList")
             .contains("target=org.agrona:agrona:2.4.1");
+        assertThat(referencesCsv(projectDir))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target",
+                ":,src/main/java/example/App.java,binary,,org.agrona:agrona:2.4.1"
+            );
     }
 
     private org.gradle.testkit.runner.BuildResult gradle(String... arguments) {
@@ -65,6 +81,14 @@ class JavaReferenceIndexPluginTest {
             .withArguments(arguments)
             .forwardOutput()
             .build();
+    }
+
+    private static List<String> referencesCsv(Path projectDirectory) throws IOException {
+        return referencesCsv(projectDirectory, "main");
+    }
+
+    private static List<String> referencesCsv(Path projectDirectory, String sourceSetName) throws IOException {
+        return Files.readAllLines(projectDirectory.resolve("build/reference-index").resolve(sourceSetName + "-references.csv"));
     }
 
     private void copyFixture(String fixtureName) throws IOException {

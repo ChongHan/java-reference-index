@@ -1,6 +1,5 @@
 package io.github.hanc.javareferenceindex.csv;
 
-import io.github.hanc.javareferenceindex.model.ProjectCoordinates;
 import io.github.hanc.javareferenceindex.model.ProjectIndex;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -8,9 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
     private static final String[] HEADER = {
@@ -28,11 +25,11 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
             Files.createDirectories(parent);
         }
 
-        Map<ProjectCoordinates, Path> projectDirectories = projectDirectories(request);
+        Path rootDirectory = request.rootDirectory().toAbsolutePath().normalize();
         Set<CsvReferenceRow> rows = new LinkedHashSet<>();
         for (var file : index.files()) {
             String sourceProject = index.project().path();
-            String sourcePath = relativePath(file.sourceFile(), projectDirectories.get(index.project()), index.project());
+            String sourcePath = relativePath(file.sourceFile(), rootDirectory);
 
             for (var reference : file.sourceReferences()) {
                 rows.add(new CsvReferenceRow(
@@ -40,11 +37,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
                     sourcePath,
                     "source",
                     reference.targetProject().path(),
-                    relativePath(
-                        reference.sourceFile(),
-                        projectDirectories.get(reference.targetProject()),
-                        reference.targetProject()
-                    )
+                    relativePath(reference.sourceFile(), rootDirectory)
                 ));
             }
 
@@ -65,27 +58,14 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
         }
     }
 
-    private static Map<ProjectCoordinates, Path> projectDirectories(CsvReferenceIndexWriteRequest request) {
-        return request.projectDirectories().stream()
-            .collect(Collectors.toUnmodifiableMap(
-                ProjectDirectory::project,
-                projectDirectory -> projectDirectory.directory().toAbsolutePath().normalize(),
-                (first, second) -> first
-            ));
-    }
-
-    private static String relativePath(Path file, Path projectDirectory, ProjectCoordinates project) {
-        if (projectDirectory == null) {
-            throw new IllegalArgumentException("Missing directory for project " + project.path());
-        }
-
+    private static String relativePath(Path file, Path rootDirectory) {
         Path normalizedFile = file.toAbsolutePath().normalize();
-        if (!normalizedFile.startsWith(projectDirectory)) {
+        if (!normalizedFile.startsWith(rootDirectory)) {
             throw new IllegalArgumentException(
-                "File " + normalizedFile + " is not under project " + project.path() + " directory " + projectDirectory
+                "File " + normalizedFile + " is not under root directory " + rootDirectory
             );
         }
-        return projectDirectory.relativize(normalizedFile).toString().replace('\\', '/');
+        return rootDirectory.relativize(normalizedFile).toString().replace('\\', '/');
     }
 
     private static void writeRow(BufferedWriter writer, String... columns) throws IOException {

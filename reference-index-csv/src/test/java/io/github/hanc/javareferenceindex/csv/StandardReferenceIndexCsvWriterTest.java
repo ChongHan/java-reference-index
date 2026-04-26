@@ -46,17 +46,14 @@ class StandardReferenceIndexCsvWriterTest {
         );
         Path outputFile = tempDir.resolve("build/reference-index/references.csv");
 
-        writer.write(index, new CsvReferenceIndexWriteRequest(
-            outputFile,
-            List.of(new ProjectDirectory(app, appDir), new ProjectDirectory(lib, libDir))
-        ));
+        writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
-                ":apps:service-a,src/main/java/app/App.java,source,:libs:shared,src/main/java/shared/LibraryType.java",
-                ":apps:service-a,src/main/java/app/App.java,binary,,org.agrona:agrona:2.4.1",
-                ":apps:service-a,src/main/java/app/App.java,,,"
+                ":apps:service-a,apps/service-a/src/main/java/app/App.java,source,:libs:shared,libs/shared/src/main/java/shared/LibraryType.java",
+                ":apps:service-a,apps/service-a/src/main/java/app/App.java,binary,,org.agrona:agrona:2.4.1",
+                ":apps:service-a,apps/service-a/src/main/java/app/App.java,,,"
             );
     }
 
@@ -73,7 +70,7 @@ class StandardReferenceIndexCsvWriterTest {
         );
         Path outputFile = tempDir.resolve("references.csv");
 
-        writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, List.of(new ProjectDirectory(app, appDir))));
+        writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly("source_project,source_path,target_kind,target_project,target");
@@ -108,17 +105,14 @@ class StandardReferenceIndexCsvWriterTest {
         );
         Path outputFile = tempDir.resolve("references.csv");
 
-        writer.write(index, new CsvReferenceIndexWriteRequest(
-            outputFile,
-            List.of(new ProjectDirectory(app, appDir), new ProjectDirectory(lib, libDir))
-        ));
+        writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
-                ":app,src/main/java/app/App.java,source,:lib,src/main/java/lib/LibraryType.java",
-                ":app,src/main/java/app/App.java,binary,,org.agrona:agrona:2.4.1",
-                ":app,src/main/java/app/App.java,,,"
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java",
+                ":app,app/src/main/java/app/App.java,binary,,org.agrona:agrona:2.4.1",
+                ":app,app/src/main/java/app/App.java,,,"
             );
     }
 
@@ -140,19 +134,20 @@ class StandardReferenceIndexCsvWriterTest {
         );
         Path outputFile = tempDir.resolve("references.csv");
 
-        writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, List.of(new ProjectDirectory(app, appDir))));
+        writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
-                ":app,src/main/java/app/App.java,binary,,\"example:quoted,\"\"dependency\"\":1.0\""
+                ":app,app/src/main/java/app/App.java,binary,,\"example:quoted,\"\"dependency\"\":1.0\""
             );
     }
 
     @Test
-    void write_withoutProjectDirectory_failsClearly() {
+    void write_withSourceOutsideRootDirectory_failsClearly() {
         ProjectCoordinates app = new ProjectCoordinates(":app");
-        Path appFile = tempDir.resolve("app/src/main/java/app/App.java");
+        Path rootDirectory = tempDir.resolve("root");
+        Path appFile = tempDir.resolve("other/app/src/main/java/app/App.java");
         ProjectIndex index = new ProjectIndex(
             app,
             new SourceSetCoordinates("main"),
@@ -161,10 +156,10 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThatThrownBy(() -> writer.write(
             index,
-            new CsvReferenceIndexWriteRequest(tempDir.resolve("references.csv"), List.of())
+            new CsvReferenceIndexWriteRequest(tempDir.resolve("references.csv"), rootDirectory)
         ))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Missing directory for project :app");
+            .hasMessageContaining("is not under root directory");
     }
 
     private static void createFile(Path file) throws IOException {

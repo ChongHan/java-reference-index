@@ -20,7 +20,9 @@ import org.gradle.api.tasks.SourceSet;
 public class JavaReferenceIndexPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
-        var taskProvider = project.getTasks().register("indexJavaReferences", IndexJavaReferencesTask.class);
+        var taskProvider = project.getTasks().register("indexJavaReferences", IndexJavaReferencesTask.class, task ->
+            task.getOutputDirectory().set(project.getLayout().getBuildDirectory().dir("reference-index"))
+        );
 
         project.getPlugins().withType(JavaPlugin.class, javaPlugin ->
             project.getGradle().projectsEvaluated(gradle ->

@@ -19,6 +19,7 @@ gradlePlugin {
 
 dependencies {
     implementation(project(":reference-index-core"))
+    implementation(project(":reference-index-csv"))
 
     testImplementation(gradleTestKit())
     testImplementation(libs.junit.jupiter)

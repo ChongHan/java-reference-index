@@ -1,18 +1,30 @@
 package io.github.hanc.javareferenceindex.gradle;
 
 import io.github.hanc.javareferenceindex.api.JavaReferenceIndexers;
+import io.github.hanc.javareferenceindex.csv.CsvReferenceIndexWriteRequest;
+import io.github.hanc.javareferenceindex.csv.ReferenceIndexCsvWriters;
 import io.github.hanc.javareferenceindex.model.ClasspathEntry;
 import io.github.hanc.javareferenceindex.model.JavaCompilerSettings;
 import io.github.hanc.javareferenceindex.model.ProjectCoordinates;
+import io.github.hanc.javareferenceindex.model.ProjectIndex;
 import io.github.hanc.javareferenceindex.model.ProjectIndexingRequest;
 import io.github.hanc.javareferenceindex.model.SourceRoot;
 import io.github.hanc.javareferenceindex.model.SourceSetCoordinates;
 import java.io.Serializable;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.GradleException;
+import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.tasks.Classpath;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
 public abstract class IndexJavaReferencesTask extends DefaultTask {
@@ -27,6 +39,43 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         this.sourceSets = List.copyOf(sourceSets);
     }
 
+    @Input
+    public List<String> getSourceSetConfiguration() {
+        return sourceSets.stream()
+            .flatMap(sourceSet -> sourceSet.configurationInputs().stream())
+            .toList();
+    }
+
+    @Input
+    public List<String> getClasspathTargets() {
+        return sourceSets.stream()
+            .flatMap(sourceSet -> sourceSet.classpathEntries().stream())
+            .map(ClasspathEntrySpec::target)
+            .sorted()
+            .toList();
+    }
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    public List<File> getSourceInputFiles() {
+        return sourceSets.stream()
+            .flatMap(sourceSet -> sourceSet.sourceFiles().stream())
+            .map(File::new)
+            .toList();
+    }
+
+    @Classpath
+    public List<File> getClasspathInputFiles() {
+        return sourceSets.stream()
+            .flatMap(sourceSet -> sourceSet.classpathEntries().stream())
+            .map(ClasspathEntrySpec::path)
+            .map(File::new)
+            .toList();
+    }
+
+    @OutputDirectory
+    public abstract DirectoryProperty getOutputDirectory();
+
     @TaskAction
     public void indexJavaReferences() {
         sourceSets.forEach(this::indexSourceSet);
@@ -34,9 +83,6 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
 
     private void indexSourceSet(SourceSetSpec sourceSet) {
         List<Path> sourceFiles = sourceSet.sourceFiles().stream().map(Path::of).toList();
-        if (sourceFiles.isEmpty()) {
-            return;
-        }
 
         ProjectCoordinates projectCoordinates = new ProjectCoordinates(sourceSet.projectPath());
         SourceSetCoordinates sourceSetCoordinates = new SourceSetCoordinates(sourceSet.sourceSetName());
@@ -61,6 +107,25 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         );
 
         var index = JavaReferenceIndexers.jdt().index(request);
+        logIndex(sourceSet, index);
+        writeCsv(sourceSet, index);
+    }
+
+    private void writeCsv(SourceSetSpec sourceSet, ProjectIndex index) {
+        Path outputFile = getOutputDirectory().get().getAsFile().toPath()
+            .resolve(sourceSet.sourceSetName() + "-references.csv");
+
+        try {
+            ReferenceIndexCsvWriters.standard().write(
+                index,
+                new CsvReferenceIndexWriteRequest(outputFile, Path.of(sourceSet.rootDir()))
+            );
+        } catch (IOException e) {
+            throw new GradleException("Failed to write Java reference index CSV", e);
+        }
+    }
+
+    private void logIndex(SourceSetSpec sourceSet, ProjectIndex index) {
         index.files().forEach(file -> {
             String sourceType = typeName(sourceSet.rootDir(), file.sourceFile());
             file.sourceReferences().forEach(reference -> getLogger().lifecycle(
@@ -121,6 +186,22 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             sourceRoots = List.copyOf(sourceRoots);
             sourceFiles = List.copyOf(sourceFiles);
             classpathEntries = List.copyOf(classpathEntries);
+        }
+
+        private List<String> configurationInputs() {
+            return java.util.stream.Stream.of(
+                    java.util.stream.Stream.of(
+                        "projectPath=" + projectPath,
+                        "sourceSetName=" + sourceSetName,
+                        "rootDir=" + rootDir
+                    ),
+                    sourceRoots.stream().map(sourceRoot -> "sourceRoot=" + sourceRoot),
+                    sourceFiles.stream().map(sourceFile -> "sourceFile=" + sourceFile),
+                    classpathEntries.stream().map(classpathEntry -> "classpathEntry=" + classpathEntry)
+                )
+                .flatMap(stream -> stream)
+                .sorted()
+                .toList();
         }
     }
 

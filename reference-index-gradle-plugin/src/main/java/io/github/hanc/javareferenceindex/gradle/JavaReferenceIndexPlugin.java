@@ -58,9 +58,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         return tasks.register(INDEX_TASK_NAME, IndexJavaReferencesTask.class, task -> {
             task.getOutputDirectory().set(project.getLayout().getBuildDirectory().dir("reference-index"));
             task.setGroup("verification");
-            task.setDescription("Builds Java reference edge CSVs for humans and coding agents. "
-                + "queryJavaReferences runs this task automatically; run it directly only to generate CSVs without querying. "
-                + "Writes one CSV per Java source set to build/reference-index/<sourceSet>-references.csv.");
+            task.setDescription("Build Java reference edge CSVs.");
         });
     }
 

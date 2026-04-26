@@ -46,16 +46,24 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
     }
 
     static String taskDescription() {
-        return "Query Java reference edges with DuckDB SQL so humans or coding agents can find exactly what a file "
-            + "references, or which files reference a target, without scanning the repository. "
-            + "This task runs indexJavaReferences first, so generated CSVs are current. "
-            + "Table: " + TABLE_NAME + ". "
-            + "Schema: " + SCHEMA + ". "
-            + "Columns: " + COLUMN_MEANING + ". "
-            + "Example source row: " + SOURCE_EXAMPLE_ROW + ". "
-            + "Example binary row: " + BINARY_EXAMPLE_ROW + ". "
-            + "What this file references: ./gradlew queryJavaReferences --sql \"" + REFERENCES_QUERY + "\". "
-            + "Who references this file: ./gradlew queryJavaReferences --sql \"" + BLAST_RADIUS_QUERY + "\".";
+        return """
+            Query Java reference edges with DuckDB SQL.
+            Table: %s
+            Schema: %s
+            Columns: %s.
+            Source row: %s
+            Binary row: %s
+            What this file references: ./gradlew queryJavaReferences --sql "%s"
+            Who references this file: ./gradlew queryJavaReferences --sql "%s"
+            """.formatted(
+                TABLE_NAME,
+                SCHEMA,
+                COLUMN_MEANING,
+                SOURCE_EXAMPLE_ROW,
+                BINARY_EXAMPLE_ROW,
+                REFERENCES_QUERY,
+                BLAST_RADIUS_QUERY
+            );
     }
 
     @InputFiles

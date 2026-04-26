@@ -1,6 +1,7 @@
 package io.github.hanc.javareferenceindex.gradle;
 
 import io.github.hanc.javareferenceindex.api.JavaReferenceIndexers;
+import io.github.hanc.javareferenceindex.model.ClasspathEntry;
 import io.github.hanc.javareferenceindex.model.JavaCompilerSettings;
 import io.github.hanc.javareferenceindex.model.ProjectCoordinates;
 import io.github.hanc.javareferenceindex.model.ProjectIndexingRequest;
@@ -9,7 +10,6 @@ import io.github.hanc.javareferenceindex.model.SourceSetCoordinates;
 import java.io.Serializable;
 import java.io.File;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.tasks.Internal;
@@ -47,7 +47,9 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
                 new SourceSetCoordinates(sourceRoot.sourceSetName())
             ))
             .toList();
-        List<Path> classpathEntries = sourceSet.classpathEntries().stream().map(Path::of).toList();
+        List<ClasspathEntry> classpathEntries = sourceSet.classpathEntries().stream()
+            .map(classpathEntry -> ClasspathEntry.of(Path.of(classpathEntry)))
+            .toList();
 
         var request = new ProjectIndexingRequest(
             projectCoordinates,
@@ -68,15 +70,15 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
                 sourceType,
                 reference.qualifiedName(),
                 rootRelativePath(sourceSet.rootDir(), reference.sourceFile()),
-                owningProjectPath(sourceSet.projects(), reference.sourceFile())
+                reference.targetProject().path()
             ));
             file.binaryReferences().forEach(reference -> getLogger().lifecycle(
-                "project={} sourceSet={} file={} binaryRef={} classpath={}",
+                "project={} sourceSet={} file={} binaryRef={} target={}",
                 sourceSet.projectPath(),
                 sourceSet.sourceSetName(),
                 sourceType,
                 reference.qualifiedName(),
-                reference.classpathEntry().getFileName()
+                reference.target()
             ));
             file.unresolvedReferences().forEach(reference -> getLogger().lifecycle(
                 "project={} sourceSet={} file={} unresolvedRef={}",
@@ -107,33 +109,20 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         return normalized.toString();
     }
 
-    private static String owningProjectPath(List<ProjectSpec> projects, Path sourceFile) {
-        Path normalized = sourceFile.toAbsolutePath().normalize();
-        return projects.stream()
-            .filter(candidate -> normalized.startsWith(Path.of(candidate.projectDir()).toAbsolutePath().normalize()))
-            .max(Comparator.comparingInt(candidate -> Path.of(candidate.projectDir()).toAbsolutePath().normalize().getNameCount()))
-            .map(ProjectSpec::path)
-            .orElse(":");
-    }
-
     public record SourceSetSpec(
         String projectPath,
         String sourceSetName,
         String rootDir,
-        List<ProjectSpec> projects,
         List<SourceRootSpec> sourceRoots,
         List<String> sourceFiles,
         List<String> classpathEntries
     ) implements Serializable {
         public SourceSetSpec {
-            projects = List.copyOf(projects);
             sourceRoots = List.copyOf(sourceRoots);
             sourceFiles = List.copyOf(sourceFiles);
             classpathEntries = List.copyOf(classpathEntries);
         }
     }
-
-    public record ProjectSpec(String path, String projectDir) implements Serializable {}
 
     public record SourceRootSpec(String path, String projectPath, String sourceSetName) implements Serializable {}
 }

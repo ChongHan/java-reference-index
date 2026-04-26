@@ -7,7 +7,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.hanc.javareferenceindex.api.JavaReferenceIndexer;
 import io.github.hanc.javareferenceindex.api.JavaReferenceIndexers;
+import io.github.hanc.javareferenceindex.model.ProjectCoordinates;
 import io.github.hanc.javareferenceindex.model.SourceReference;
+import io.github.hanc.javareferenceindex.model.SourceSetCoordinates;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -239,6 +241,11 @@ class SourceReferenceShapeTest {
     }
 
     private static SourceReference sourceReference(Path sourceRoot, String sourceFileName, String qualifiedName) {
-        return new SourceReference(qualifiedName, sourceRoot.resolve("example/" + sourceFileName).toAbsolutePath().normalize());
+        return new SourceReference(
+            qualifiedName,
+            sourceRoot.resolve("example/" + sourceFileName).toAbsolutePath().normalize(),
+            new ProjectCoordinates(":fixture"),
+            new SourceSetCoordinates("main")
+        );
     }
 }

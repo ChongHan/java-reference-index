@@ -1,5 +1,6 @@
 package io.github.hanc.javareferenceindex.internal.jdt;
 
+import io.github.hanc.javareferenceindex.model.ClasspathEntry;
 import io.github.hanc.javareferenceindex.model.ProjectIndexingRequest;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -50,8 +51,9 @@ final class JdtCompilationUnitParser implements CompilationUnitParser {
             .toArray(String[]::new);
     }
 
-    private static String[] toStrings(List<Path> paths) {
-        return paths.stream()
+    private static String[] toStrings(List<ClasspathEntry> entries) {
+        return entries.stream()
+            .map(ClasspathEntry::path)
             .map(Path::toAbsolutePath)
             .map(Path::normalize)
             .map(Path::toString)

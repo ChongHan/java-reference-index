@@ -8,7 +8,7 @@ public record ProjectIndexingRequest(
     SourceSetCoordinates sourceSet,
     List<SourceRoot> sourceRoots,
     List<Path> sourceFiles,
-    List<Path> classpathEntries,
+    List<ClasspathEntry> classpathEntries,
     JavaCompilerSettings compilerSettings
 ) {
     public ProjectIndexingRequest {

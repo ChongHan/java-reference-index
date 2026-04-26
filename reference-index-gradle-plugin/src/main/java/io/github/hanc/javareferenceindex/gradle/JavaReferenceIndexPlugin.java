@@ -38,20 +38,10 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             project.getPath(),
             sourceSet.getName(),
             project.getRootDir().toPath().toAbsolutePath().normalize().toString(),
-            projects(project),
             sourceRoots(project, sourceSet),
             sourceFiles(sourceSet),
             classpathEntries(sourceSet)
         );
-    }
-
-    private static List<IndexJavaReferencesTask.ProjectSpec> projects(Project project) {
-        return project.getRootProject().getAllprojects().stream()
-            .map(candidate -> new IndexJavaReferencesTask.ProjectSpec(
-                candidate.getPath(),
-                candidate.getProjectDir().toPath().toAbsolutePath().normalize().toString()
-            ))
-            .toList();
     }
 
     private static List<IndexJavaReferencesTask.SourceRootSpec> sourceRoots(Project project, SourceSet sourceSet) {

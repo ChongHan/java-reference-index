@@ -2,6 +2,7 @@ package io.github.hanc.javareferenceindex;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static io.github.hanc.javareferenceindex.ReferenceIndexingFixtures.classpathJarContaining;
+import static io.github.hanc.javareferenceindex.ReferenceIndexingFixtures.fixturePath;
 import static io.github.hanc.javareferenceindex.ReferenceIndexingFixtures.fixtureSourceRoot;
 import static io.github.hanc.javareferenceindex.ReferenceIndexingFixtures.request;
 import static io.github.hanc.javareferenceindex.ReferenceIndexingFixtures.singleFile;
@@ -9,9 +10,15 @@ import static io.github.hanc.javareferenceindex.ReferenceIndexingFixtures.single
 import io.github.hanc.javareferenceindex.api.JavaReferenceIndexer;
 import io.github.hanc.javareferenceindex.api.JavaReferenceIndexers;
 import io.github.hanc.javareferenceindex.model.BinaryReference;
+import io.github.hanc.javareferenceindex.model.ClasspathEntry;
 import io.github.hanc.javareferenceindex.model.FileReferenceSet;
+import io.github.hanc.javareferenceindex.model.JavaCompilerSettings;
 import io.github.hanc.javareferenceindex.model.ProjectIndex;
+import io.github.hanc.javareferenceindex.model.ProjectCoordinates;
+import io.github.hanc.javareferenceindex.model.ProjectIndexingRequest;
 import io.github.hanc.javareferenceindex.model.SourceReference;
+import io.github.hanc.javareferenceindex.model.SourceRoot;
+import io.github.hanc.javareferenceindex.model.SourceSetCoordinates;
 import java.nio.file.Path;
 import java.util.List;
 import javax.tools.JavaCompiler;
@@ -48,7 +55,34 @@ class JdtJavaReferenceIndexerTest {
         ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of()));
 
         assertThat(singleFile(index).sourceReferences())
-            .containsExactly(new SourceReference("example.Helper", helperFile));
+            .containsExactly(sourceReference("example.Helper", helperFile));
+    }
+
+    @Test
+    void index_withSourceReferenceFromAnotherSourceRoot_returnsTargetOwnership() {
+        Path fixtureRoot = fixturePath("jdt-indexer-source-root-ownership");
+        Path appSourceRoot = fixtureRoot.resolve("app/src/main/java");
+        Path libSourceRoot = fixtureRoot.resolve("lib/src/main/java");
+        Path sourceFile = appSourceRoot.resolve("app/UsesLibrary.java");
+        Path libraryFile = libSourceRoot.resolve("lib/LibraryType.java").toAbsolutePath().normalize();
+        ProjectCoordinates app = new ProjectCoordinates(":app");
+        SourceSetCoordinates main = new SourceSetCoordinates("main");
+        ProjectCoordinates lib = new ProjectCoordinates(":lib");
+
+        ProjectIndex index = indexer.index(new ProjectIndexingRequest(
+            app,
+            main,
+            List.of(
+                new SourceRoot(appSourceRoot, app, main),
+                new SourceRoot(libSourceRoot, lib, main)
+            ),
+            List.of(sourceFile),
+            List.of(),
+            JavaCompilerSettings.java21()
+        ));
+
+        assertThat(singleFile(index).sourceReferences())
+            .containsExactly(new SourceReference("lib.LibraryType", libraryFile, lib, main));
     }
 
     @Test
@@ -56,11 +90,16 @@ class JdtJavaReferenceIndexerTest {
         Path sourceRoot = fixtureSourceRoot("jdt-indexer-agrona-reference");
         Path sourceFile = sourceRoot.resolve("example/UsesAgrona.java");
         Path agronaJar = classpathJarContaining(IntArrayList.class);
+        ClasspathEntry agrona = ClasspathEntry.of(agronaJar, "org.agrona:agrona:2.4.1");
 
-        ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of(agronaJar)));
+        ProjectIndex index = indexer.index(ReferenceIndexingFixtures.requestWithClasspathEntries(
+            sourceRoot,
+            List.of(sourceFile),
+            List.of(agrona)
+        ));
 
         assertThat(singleFile(index).binaryReferences())
-            .containsExactly(new BinaryReference("org.agrona.collections.IntArrayList", agronaJar));
+            .containsExactly(new BinaryReference("org.agrona.collections.IntArrayList", "org.agrona:agrona:2.4.1"));
     }
 
     @Test
@@ -72,7 +111,16 @@ class JdtJavaReferenceIndexerTest {
         ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of(classesDir)));
 
         assertThat(singleFile(index).binaryReferences())
-            .containsExactly(new BinaryReference("external.dep.CompiledDependency", classesDir));
+            .containsExactly(new BinaryReference("external.dep.CompiledDependency", classesDir.getFileName().toString()));
+    }
+
+    private static SourceReference sourceReference(String qualifiedName, Path sourceFile) {
+        return new SourceReference(
+            qualifiedName,
+            sourceFile,
+            new ProjectCoordinates(":fixture"),
+            new SourceSetCoordinates("main")
+        );
     }
 
     private Path compileDependencyClass() {

@@ -4,5 +4,7 @@ import java.nio.file.Path;
 
 public record SourceReference(
     String qualifiedName,
-    Path sourceFile
+    Path sourceFile,
+    ProjectCoordinates targetProject,
+    SourceSetCoordinates targetSourceSet
 ) {}

@@ -2,6 +2,7 @@ package io.github.hanc.javareferenceindex;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.hanc.javareferenceindex.model.ClasspathEntry;
 import io.github.hanc.javareferenceindex.model.FileReferenceSet;
 import io.github.hanc.javareferenceindex.model.JavaCompilerSettings;
 import io.github.hanc.javareferenceindex.model.ProjectCoordinates;
@@ -18,6 +19,14 @@ final class ReferenceIndexingFixtures {
     }
 
     static ProjectIndexingRequest request(Path sourceRoot, List<Path> sourceFiles, List<Path> classpathEntries) {
+        return requestWithClasspathEntries(sourceRoot, sourceFiles, classpathEntries.stream().map(ClasspathEntry::of).toList());
+    }
+
+    static ProjectIndexingRequest requestWithClasspathEntries(
+        Path sourceRoot,
+        List<Path> sourceFiles,
+        List<ClasspathEntry> classpathEntries
+    ) {
         ProjectCoordinates project = new ProjectCoordinates(":fixture");
         SourceSetCoordinates sourceSet = new SourceSetCoordinates("main");
         return new ProjectIndexingRequest(
@@ -36,8 +45,12 @@ final class ReferenceIndexingFixtures {
     }
 
     static Path fixtureSourceRoot(String fixtureName) {
+        return fixturePath(fixtureName).resolve("src/main/java").toAbsolutePath().normalize();
+    }
+
+    static Path fixturePath(String fixtureName) {
         try {
-            return Path.of(ReferenceIndexingFixtures.class.getResource("/fixtures/" + fixtureName + "/src/main/java").toURI())
+            return Path.of(ReferenceIndexingFixtures.class.getResource("/fixtures/" + fixtureName).toURI())
                 .toAbsolutePath()
                 .normalize();
         } catch (URISyntaxException e) {

@@ -137,6 +137,41 @@ class JavaReferenceIndexPluginTest {
             );
     }
 
+    @Test
+    void queryJavaReferences_withSql_printsRowsFromGeneratedCsvFiles() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradle(
+            "queryJavaReferences",
+            "--sql",
+            "select source_path, target_kind, target from java_references order by source_path, target"
+        );
+
+        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("source_path,target_kind,target")
+            .contains("src/main/java/example/App.java,source,src/main/java/example/Helper.java");
+    }
+
+    @Test
+    void queryJavaReferences_fromRootProject_queriesSubprojectCsvFiles() throws IOException {
+        copyFixture("multi-project");
+
+        var result = gradle(
+            ":queryJavaReferences",
+            "--sql",
+            "select source_project, target_project, target from java_references where target_kind = 'source' order by target"
+        );
+
+        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":app:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("source_project,target_project,target")
+            .contains(":app,:lib,lib/src/main/java/lib/LibraryType.java");
+    }
+
     private org.gradle.testkit.runner.BuildResult gradle(String... arguments) {
         return GradleRunner.create()
             .withProjectDir(projectDir.toFile())

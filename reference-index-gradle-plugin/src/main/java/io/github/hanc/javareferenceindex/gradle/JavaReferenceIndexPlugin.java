@@ -21,12 +21,23 @@ import org.gradle.api.tasks.TaskProvider;
 
 public class JavaReferenceIndexPlugin implements Plugin<Project> {
     static final String INDEX_TASK_NAME = "indexJavaReferences";
+    static final String QUERY_TASK_NAME = "queryJavaReferences";
 
     @Override
     public void apply(Project project) {
         var taskProvider = indexTask(project);
+        var queryTaskProvider = queryTask(project);
+        queryTaskProvider.configure(task -> {
+            task.dependsOn(taskProvider);
+            addReferenceIndexFiles(task, project, taskProvider);
+        });
         if (!project.equals(project.getRootProject())) {
-            indexTask(project.getRootProject()).configure(task -> task.dependsOn(taskProvider));
+            var rootIndexTaskProvider = indexTask(project.getRootProject());
+            rootIndexTaskProvider.configure(task -> task.dependsOn(taskProvider));
+            queryTask(project.getRootProject()).configure(task -> {
+                task.dependsOn(rootIndexTaskProvider);
+                addReferenceIndexFiles(task, project, taskProvider);
+            });
         }
 
         project.getPlugins().withType(JavaPlugin.class, javaPlugin ->
@@ -49,6 +60,29 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             task.setGroup("verification");
             task.setDescription("Indexes Java references for all projects with the Java reference index plugin applied.");
         });
+    }
+
+    private static TaskProvider<QueryJavaReferencesTask> queryTask(Project project) {
+        var tasks = project.getTasks();
+        if (tasks.getNames().contains(QUERY_TASK_NAME)) {
+            return tasks.named(QUERY_TASK_NAME, QueryJavaReferencesTask.class);
+        }
+        return tasks.register(QUERY_TASK_NAME, QueryJavaReferencesTask.class, task -> {
+            task.setGroup("verification");
+            task.setDescription("Queries generated Java reference index CSV files with SQL.");
+        });
+    }
+
+    private static void addReferenceIndexFiles(
+        QueryJavaReferencesTask task,
+        Project project,
+        TaskProvider<IndexJavaReferencesTask> indexTaskProvider
+    ) {
+        var referenceIndexFiles = project.fileTree(
+            indexTaskProvider.flatMap(IndexJavaReferencesTask::getOutputDirectory),
+            fileTree -> fileTree.include("*-references.csv")
+        );
+        task.getReferenceIndexFiles().from(referenceIndexFiles);
     }
 
     private static List<?> compileJavaTasks(Project project) {

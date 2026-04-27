@@ -53,10 +53,23 @@ final class JdtCompilationUnitParser implements CompilationUnitParser {
 
     private static String[] toStrings(List<ClasspathEntry> entries) {
         return entries.stream()
+            .filter(JdtCompilationUnitParser::isSupportedClasspathEntry)
             .map(ClasspathEntry::path)
             .map(Path::toAbsolutePath)
             .map(Path::normalize)
             .map(Path::toString)
             .toArray(String[]::new);
+    }
+
+    private static boolean isSupportedClasspathEntry(ClasspathEntry entry) {
+        Path path = entry.path().toAbsolutePath().normalize();
+        if (Files.isDirectory(path)) {
+            return true;
+        }
+        if (!Files.isRegularFile(path)) {
+            return false;
+        }
+        String fileName = path.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+        return fileName.endsWith(".jar") || fileName.endsWith(".zip");
     }
 }

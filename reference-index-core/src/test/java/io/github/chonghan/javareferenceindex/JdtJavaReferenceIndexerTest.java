@@ -19,6 +19,9 @@ import io.github.chonghan.javareferenceindex.model.ProjectIndexingRequest;
 import io.github.chonghan.javareferenceindex.model.SourceReference;
 import io.github.chonghan.javareferenceindex.model.SourceRoot;
 import io.github.chonghan.javareferenceindex.model.SourceSetCoordinates;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import javax.tools.JavaCompiler;
@@ -156,6 +159,41 @@ class JdtJavaReferenceIndexerTest {
             ));
     }
 
+    @Test
+    void index_withNonZipFileOnClasspath_ignoresEntryWhenUnreferenced() {
+        Path sourceRoot = fixtureSourceRoot("jdt-indexer-no-references");
+        Path sourceFile = sourceRoot.resolve("example/Plain.java");
+        Path nativeLibrary = createNativeLibraryClasspathFile("libnative.so");
+
+        ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of(nativeLibrary)));
+
+        FileReferenceSet references = singleFile(index);
+        assertThat(references.sourceReferences()).isEmpty();
+        assertThat(references.binaryReferences()).isEmpty();
+        assertThat(references.unresolvedReferences()).isEmpty();
+    }
+
+    @Test
+    void index_withJniSourceAndNonZipFileOnClasspath_ignoresNativeLibraryEntry() {
+        Path sourceRoot = fixtureSourceRoot("jdt-indexer-jni-native-library");
+        Path sourceFile = sourceRoot.resolve("example/UsesNativeLibrary.java");
+        Path nativeLibrary = createNativeLibraryClasspathFile("Libbedrockio-89.so");
+        ByteArrayOutputStream standardError = new ByteArrayOutputStream();
+
+        ProjectIndex index = captureStandardError(
+            standardError,
+            () -> indexer.index(request(sourceRoot, List.of(sourceFile), List.of(nativeLibrary)))
+        );
+
+        FileReferenceSet references = singleFile(index);
+        assertThat(references.sourceReferences()).isEmpty();
+        assertThat(references.binaryReferences()).isEmpty();
+        assertThat(references.unresolvedReferences()).isEmpty();
+        assertThat(standardError.toString(StandardCharsets.UTF_8))
+            .doesNotContain("Failed to init Classpath")
+            .doesNotContain("ZipException");
+    }
+
     private static SourceReference sourceReference(String qualifiedName, Path sourceFile) {
         return new SourceReference(
             qualifiedName,
@@ -208,5 +246,25 @@ class JdtJavaReferenceIndexerTest {
         int result = compiler.run(null, null, null, "-d", classesDir.toString(), sourceFile.toString());
         assertThat(result).isZero();
         return classesDir;
+    }
+
+    private Path createNativeLibraryClasspathFile(String fileName) {
+        Path file = tempDir.resolve(fileName).toAbsolutePath().normalize();
+        try {
+            java.nio.file.Files.write(file, new byte[] {0x7f, 'E', 'L', 'F', 1, 2, 3, 4});
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return file;
+    }
+
+    private static ProjectIndex captureStandardError(ByteArrayOutputStream standardError, java.util.function.Supplier<ProjectIndex> action) {
+        PrintStream originalStandardError = System.err;
+        try (PrintStream capture = new PrintStream(standardError, true, StandardCharsets.UTF_8)) {
+            System.setErr(capture);
+            return action.get();
+        } finally {
+            System.setErr(originalStandardError);
+        }
     }
 }

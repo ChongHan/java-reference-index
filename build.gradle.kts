@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.nmcp.aggregation)
+    alias(libs.plugins.java.reference.index) apply false
 }
 
 group = "io.github.chonghan"
@@ -8,6 +9,8 @@ version = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT").ge
 subprojects {
     group = rootProject.group
     version = rootProject.version
+
+    apply(plugin = "io.github.chonghan.java-reference-index")
 }
 
 nmcpAggregation {

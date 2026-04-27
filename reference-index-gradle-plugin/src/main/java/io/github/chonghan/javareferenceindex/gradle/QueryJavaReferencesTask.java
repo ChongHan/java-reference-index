@@ -106,7 +106,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
 
             boolean hasResultSet = statement.execute(sql);
             if (!hasResultSet) {
-                getLogger().lifecycle("Query completed without a result set.");
+                getLogger().quiet("Query completed without a result set.");
                 return;
             }
 
@@ -134,14 +134,14 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
         for (int column = 1; column <= columnCount; column++) {
             header[column - 1] = metadata.getColumnLabel(column);
         }
-        getLogger().lifecycle(csvRow(header));
+        getLogger().quiet(csvRow(header));
 
         while (resultSet.next()) {
             String[] row = new String[columnCount];
             for (int column = 1; column <= columnCount; column++) {
                 row[column - 1] = resultSet.getString(column);
             }
-            getLogger().lifecycle(csvRow(row));
+            getLogger().quiet(csvRow(row));
         }
     }
 

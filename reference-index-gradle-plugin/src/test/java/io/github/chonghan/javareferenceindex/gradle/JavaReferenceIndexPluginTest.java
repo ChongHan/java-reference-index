@@ -195,6 +195,24 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void queryJavaReferences_withQuietLogging_printsOnlyQueryResult() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradle(
+            "-q",
+            "queryJavaReferences",
+            "--sql",
+            "select source_path, target_kind, target from java_references order by source_path, target"
+        );
+
+        assertThat(result.task(":queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput()).isEqualTo("""
+            source_path,target_kind,target
+            src/main/java/example/App.java,source,src/main/java/example/Helper.java
+            """);
+    }
+
+    @Test
     void queryJavaReferences_fromRootProject_queriesSubprojectCsvFiles() throws IOException {
         copyFixture("multi-project");
 

@@ -1,11 +1,11 @@
 plugins {
     java
-    id("io.github.hanc.java-reference-index") apply false
+    id("io.github.chonghan.java-reference-index") apply false
 }
 
 subprojects {
     apply(plugin = "java")
-    apply(plugin = "io.github.hanc.java-reference-index")
+    apply(plugin = "io.github.chonghan.java-reference-index")
 
     java {
         toolchain {

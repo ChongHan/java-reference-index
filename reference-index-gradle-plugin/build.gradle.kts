@@ -19,8 +19,8 @@ java {
 gradlePlugin {
     plugins {
         create("javaReferenceIndex") {
-            id = "io.github.hanc.java-reference-index"
-            implementationClass = "io.github.hanc.javareferenceindex.gradle.JavaReferenceIndexPlugin"
+            id = "io.github.chonghan.java-reference-index"
+            implementationClass = "io.github.chonghan.javareferenceindex.gradle.JavaReferenceIndexPlugin"
         }
     }
 }

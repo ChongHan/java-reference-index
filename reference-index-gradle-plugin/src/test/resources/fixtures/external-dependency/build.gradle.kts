@@ -1,6 +1,6 @@
 plugins {
     java
-    id("io.github.hanc.java-reference-index")
+    id("io.github.chonghan.java-reference-index")
 }
 
 java {

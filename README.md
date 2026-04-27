@@ -24,7 +24,7 @@ Apply the plugin in your root `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.github.hanc.java-reference-index") version "0.1.0-SNAPSHOT"
+    id("io.github.chonghan.java-reference-index") version "0.1.0-SNAPSHOT"
 }
 ```
 

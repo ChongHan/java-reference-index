@@ -52,10 +52,12 @@ source_project,source_path,target_kind,target_project,target
 Run SQL against all generated CSV files:
 
 ```bash
-./gradlew queryJavaReferences --sql "SELECT * FROM java_references LIMIT 20"
+./gradlew :queryJavaReferences --sql "SELECT * FROM java_references LIMIT 20"
 ```
 
 The task exposes a DuckDB view named `java_references`.
+
+Use the leading `:` when querying the whole build from the root project. `./gradlew queryJavaReferences` uses Gradle task-name selection and can run every task named `queryJavaReferences` in the root project and subprojects, producing repeated result sets.
 
 | Column | Description |
 |---|---|
@@ -68,19 +70,19 @@ The task exposes a DuckDB view named `java_references`.
 Find what one file references:
 
 ```bash
-./gradlew queryJavaReferences --sql "SELECT target_kind, target_project, target FROM java_references WHERE source_path = 'app/src/main/java/app/App.java'"
+./gradlew :queryJavaReferences --sql "SELECT target_kind, target_project, target FROM java_references WHERE source_path = 'app/src/main/java/app/App.java'"
 ```
 
 Find files affected by changing a source file:
 
 ```bash
-./gradlew queryJavaReferences --sql "SELECT source_project, source_path FROM java_references WHERE target = 'lib/src/main/java/lib/LibraryType.java'"
+./gradlew :queryJavaReferences --sql "SELECT source_project, source_path FROM java_references WHERE target = 'lib/src/main/java/lib/LibraryType.java'"
 ```
 
 Find external types used by a project:
 
 ```bash
-./gradlew queryJavaReferences --sql "SELECT DISTINCT target_project, target FROM java_references WHERE source_project = ':app' AND target_kind = 'binary'"
+./gradlew :queryJavaReferences --sql "SELECT DISTINCT target_project, target FROM java_references WHERE source_project = ':app' AND target_kind = 'binary'"
 ```
 
 ## How It Works

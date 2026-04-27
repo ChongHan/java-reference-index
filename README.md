@@ -122,13 +122,62 @@ Validate Plugin Portal metadata without uploading:
 
 ## Publishing
 
-The plugin is configured for the Gradle Plugin Portal with a shaded plugin artifact, so consumers only need the plugin id.
+The plugin is configured for both the Gradle Plugin Portal and Maven Central.
+The implementation artifact is shaded, so consumers only need the plugin artifact and plugin marker artifact.
 
-Set Plugin Portal credentials through environment variables:
+### Gradle Plugin Portal
+
+Set Plugin Portal credentials through `~/.gradle/gradle.properties`:
+
+```properties
+gradle.publish.key=...
+gradle.publish.secret=...
+```
+
+Publish to the Gradle Plugin Portal:
 
 ```bash
-GRADLE_PUBLISH_KEY=... GRADLE_PUBLISH_SECRET=... \
 ./gradlew :reference-index-gradle-plugin:publishPlugins -PreleaseVersion=0.1.0
 ```
+
+### Maven Central
+
+Maven Central publishing uses the Central Portal API through `com.gradleup.nmcp`.
+It publishes:
+
+```text
+io.github.chonghan:reference-index-gradle-plugin:<version>
+io.github.chonghan.java-reference-index:io.github.chonghan.java-reference-index.gradle.plugin:<version>
+```
+
+Set Maven Central credentials through `~/.gradle/gradle.properties`:
+
+```properties
+mavenCentralUsername=...
+mavenCentralPassword=...
+```
+
+Environment variable alternatives are supported for the Maven Central credentials:
+
+```text
+MAVEN_CENTRAL_USERNAME
+MAVEN_CENTRAL_PASSWORD
+```
+
+Signing uses the local `gpg` command and your local GPG keyring. Do not put private signing keys in Gradle properties.
+
+Verify GPG signing works before publishing:
+
+```bash
+echo test | gpg --clearsign
+```
+
+Upload to the Maven Central Portal as a user-managed publication:
+
+```bash
+./gradlew publishAggregationToCentralPortal -PreleaseVersion=0.1.0
+```
+
+Then release the deployment from `https://central.sonatype.com/`.
 
 Local builds default to `0.1.0-SNAPSHOT`. Release builds should pass `-PreleaseVersion=<version>`.

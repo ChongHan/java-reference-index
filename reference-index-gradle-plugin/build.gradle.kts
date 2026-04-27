@@ -1,7 +1,9 @@
 plugins {
     `java-gradle-plugin`
     alias(libs.plugins.gradle.plugin.publish)
+    id("com.gradleup.nmcp")
     alias(libs.plugins.shadow)
+    signing
 }
 
 val integrationTest = sourceSets.create("integrationTest") {
@@ -50,6 +52,48 @@ tasks.test {
 
 tasks.named<Jar>("shadowJar") {
     archiveClassifier.set("")
+}
+
+publishing {
+    publications.withType<MavenPublication>().configureEach {
+        pom {
+            name = "Java Reference Index"
+            description = "Builds queryable Java source reference indexes for Gradle projects."
+            url = "https://github.com/ChongHan/java-reference-index"
+
+            licenses {
+                license {
+                    name = "Apache License, Version 2.0"
+                    url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                }
+            }
+
+            developers {
+                developer {
+                    id = "ChongHan"
+                    name = "ChongHan"
+                    url = "https://github.com/ChongHan"
+                }
+            }
+
+            scm {
+                connection = "scm:git:https://github.com/ChongHan/java-reference-index.git"
+                developerConnection = "scm:git:https://github.com/ChongHan/java-reference-index.git"
+                url = "https://github.com/ChongHan/java-reference-index"
+            }
+        }
+    }
+}
+
+signing {
+    setRequired {
+        gradle.taskGraph.allTasks.any { task ->
+            task.name.contains("Central")
+        }
+    }
+
+    useGpgCmd()
+    sign(publishing.publications)
 }
 
 tasks.register<Test>("integrationTest") {

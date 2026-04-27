@@ -84,6 +84,8 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             throw new GradleException("No Java reference index CSV files were found. Run indexJavaReferences first.");
         }
 
+        loadDuckDbDriver();
+
         try (var connection = DriverManager.getConnection("jdbc:duckdb:");
              var statement = connection.createStatement()) {
             statement.execute("CREATE VIEW java_references AS SELECT * FROM read_csv("
@@ -101,6 +103,14 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             }
         } catch (SQLException e) {
             throw new GradleException("Failed to query Java reference index CSV files", e);
+        }
+    }
+
+    private static void loadDuckDbDriver() {
+        try {
+            Class.forName("org.duckdb.DuckDBDriver");
+        } catch (ClassNotFoundException e) {
+            throw new GradleException("DuckDB JDBC driver is not available on the plugin classpath", e);
         }
     }
 

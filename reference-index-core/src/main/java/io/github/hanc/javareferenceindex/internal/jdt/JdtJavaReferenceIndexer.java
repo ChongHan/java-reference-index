@@ -23,7 +23,7 @@ public final class JdtJavaReferenceIndexer implements JavaReferenceIndexer {
 
     @Override
     public ProjectIndex index(ProjectIndexingRequest request) {
-        List<FileReferenceSet> files = request.sourceFiles().stream()
+        List<FileReferenceSet> files = request.sourceFiles().parallelStream()
             .map(sourceFile -> fileReferenceScanner.scan(sourceFile, request))
             .toList();
         return new ProjectIndex(request.project(), request.sourceSet(), files);

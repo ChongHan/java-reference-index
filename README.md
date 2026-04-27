@@ -1,10 +1,45 @@
 # java-reference-index
 
-A Gradle plugin that builds queryable reference indices for Java source code. It analyzes your project's source files using the Eclipse JDT compiler, extracts all type references, and writes them to CSV files that can be queried with SQL (via DuckDB).
+`java-reference-index` is a Gradle plugin that builds a queryable reference index for Java source code.
 
-## What it does
+It parses Java sources with Eclipse JDT, resolves type references against project sources and binary dependencies, writes one CSV per source set, and lets you query the result with DuckDB SQL.
 
-For each source set in your project, the plugin generates a CSV file that maps every source file to the types it references — whether those types live in another source file in the same build, or in a binary dependency pulled from Maven.
+## Use Cases
+
+- Find what a Java file depends on.
+- Find which files reference a source file or binary type.
+- Estimate the blast radius of changing a Java file.
+- Give coding agents a structured codebase map instead of relying only on text search.
+
+## Apply The Plugin
+
+Apply the plugin in the root `build.gradle.kts`:
+
+```kotlin
+plugins {
+    id("io.github.chonghan.java-reference-index") version "0.1.0"
+}
+```
+
+The plugin configures every subproject that applies the Gradle `java` plugin.
+
+## Index References
+
+Run from the root project:
+
+```bash
+./gradlew indexJavaReferences
+```
+
+Each Java source set writes its own CSV file under that subproject:
+
+```text
+build/reference-index/
+  main-references.csv
+  test-references.csv
+```
+
+Example rows:
 
 ```csv
 source_project,source_path,target_kind,target_project,target
@@ -12,93 +47,88 @@ source_project,source_path,target_kind,target_project,target
 :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList
 ```
 
-You can then run SQL queries against the generated data to answer questions like:
+## Query References
 
-- What does this file depend on?
-- Who references this type? (blast radius)
-- Which external libraries does this module pull in?
+Run SQL against all generated CSV files:
 
-## Setup
-
-Apply the plugin in your root `build.gradle.kts`:
-
-```kotlin
-plugins {
-    id("io.github.chonghan.java-reference-index") version "0.1.0-SNAPSHOT"
-}
+```bash
+./gradlew queryJavaReferences --sql "SELECT * FROM java_references LIMIT 20"
 ```
 
-The plugin auto-configures itself for any subproject that has the Java plugin applied. No additional configuration is needed.
-
-## Tasks
-
-### `indexJavaReferences`
-
-Parses all Java source files and writes reference data to CSV.
-
-```
-./gradlew indexJavaReferences
-```
-
-Output files are written to `build/reference-index/` within each subproject:
-
-```
-build/reference-index/
-  main-references.csv
-  test-references.csv
-```
-
-Running the task from the root project indexes all subprojects.
-
-### `queryJavaReferences`
-
-Runs a SQL query against the generated CSV files using DuckDB. The CSV data is exposed as a view named `java_references` with columns:
+The task exposes a DuckDB view named `java_references`.
 
 | Column | Description |
 |---|---|
-| `source_project` | Gradle project path (e.g. `:app`) |
-| `source_path` | Path to the source file, relative to the project root |
-| `target_kind` | `source`, `binary`, or empty (unresolved) |
-| `target_project` | For source refs: Gradle project path. For binary: Maven coordinates (`group:artifact:version`) |
-| `target` | For source refs: path to the target file. For binary: fully-qualified class name |
+| `source_project` | Gradle project path containing the source file, such as `:app` |
+| `source_path` | Source file path relative to the root project |
+| `target_kind` | `source`, `binary`, or empty when unresolved |
+| `target_project` | Source target project path, or Maven coordinates for binary targets |
+| `target` | Source target path, binary fully-qualified type name, or empty when unresolved |
 
-Pass a SQL query with `--sql`:
+Find what one file references:
 
+```bash
+./gradlew queryJavaReferences --sql "SELECT target_kind, target_project, target FROM java_references WHERE source_path = 'app/src/main/java/app/App.java'"
 ```
-./gradlew queryJavaReferences --sql "SELECT target_project, target FROM java_references WHERE source_path = 'app/src/main/java/app/App.java'"
-```
 
-**Find everything that references a type** (blast radius):
+Find files affected by changing a source file:
 
-```
+```bash
 ./gradlew queryJavaReferences --sql "SELECT source_project, source_path FROM java_references WHERE target = 'lib/src/main/java/lib/LibraryType.java'"
 ```
 
-**Find all external dependencies used by a module:**
+Find external types used by a project:
 
-```
+```bash
 ./gradlew queryJavaReferences --sql "SELECT DISTINCT target_project, target FROM java_references WHERE source_project = ':app' AND target_kind = 'binary'"
 ```
 
-## How it works
+## How It Works
 
-1. The plugin collects source files, classpath entries (with Maven coordinates), and compiler settings for each source set.
-2. [Eclipse JDT](https://eclipse.dev/jdt/) parses the source files and resolves type bindings.
-3. Each resolved reference is classified as a source reference (points to a `.java` file in the build) or a binary reference (points to a type in a JAR on the classpath).
-4. Results are written to CSV, one file per source set.
-5. `queryJavaReferences` loads all CSV files into a DuckDB in-memory database and runs your SQL query.
+1. The plugin gathers Java source files, source roots, compiler settings, and resolved classpath entries for each source set.
+2. Eclipse JDT parses each source file and resolves type bindings.
+3. The core indexer classifies each resolved type as a source reference or binary reference.
+4. The CSV module writes the in-memory index as reference rows.
+5. `queryJavaReferences` loads all CSV files into DuckDB and executes the supplied SQL.
 
-Source references are preferred over binary references: if a type is available as source in the build, it is recorded as a source reference even if the same type also appears on the binary classpath.
+Source references are preferred over binary references. If a type is available as source in the build, it is recorded as a source file even if compiled classes for the same type also exist on the classpath.
 
-## Subprojects
+## Project Layout
 
-| Subproject | Description |
+| Subproject | Purpose |
 |---|---|
-| `reference-index-core` | JDT-based indexing engine and data model |
-| `reference-index-csv` | CSV serialization for index output |
-| `reference-index-gradle-plugin` | Gradle plugin, tasks, and DuckDB query integration |
+| `reference-index-core` | JDT-based parser, resolver, and in-memory model |
+| `reference-index-csv` | CSV serialization for the core index output |
+| `reference-index-gradle-plugin` | Gradle tasks, source set wiring, artifact resolution, and DuckDB query support |
 
-## Requirements
+## Development
+
+Requirements:
 
 - Java 21
-- Gradle (any recent version with the Kotlin DSL)
+- Gradle wrapper from this repository
+
+Run the main test suite:
+
+```bash
+./gradlew :reference-index-core:test :reference-index-csv:test :reference-index-gradle-plugin:test
+```
+
+Validate Plugin Portal metadata without uploading:
+
+```bash
+./gradlew :reference-index-gradle-plugin:publishPlugins --validate-only -PreleaseVersion=0.1.0
+```
+
+## Publishing
+
+The plugin is configured for the Gradle Plugin Portal with a shaded plugin artifact, so consumers only need the plugin id.
+
+Set Plugin Portal credentials through environment variables:
+
+```bash
+GRADLE_PUBLISH_KEY=... GRADLE_PUBLISH_SECRET=... \
+./gradlew :reference-index-gradle-plugin:publishPlugins -PreleaseVersion=0.1.0
+```
+
+Local builds default to `0.1.0-SNAPSHOT`. Release builds should pass `-PreleaseVersion=<version>`.

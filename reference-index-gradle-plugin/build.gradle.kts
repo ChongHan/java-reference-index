@@ -1,5 +1,7 @@
 plugins {
     `java-gradle-plugin`
+    alias(libs.plugins.gradle.plugin.publish)
+    alias(libs.plugins.shadow)
 }
 
 val integrationTest = sourceSets.create("integrationTest") {
@@ -17,9 +19,15 @@ java {
 }
 
 gradlePlugin {
+    website = "https://github.com/ChongHan/java-reference-index"
+    vcsUrl = "https://github.com/ChongHan/java-reference-index.git"
+
     plugins {
         create("javaReferenceIndex") {
             id = "io.github.chonghan.java-reference-index"
+            displayName = "Java Reference Index"
+            description = "Builds queryable Java source reference indexes for Gradle projects."
+            tags = listOf("java", "references", "analysis", "jdt", "duckdb")
             implementationClass = "io.github.chonghan.javareferenceindex.gradle.JavaReferenceIndexPlugin"
         }
     }
@@ -38,6 +46,10 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.named<Jar>("shadowJar") {
+    archiveClassifier.set("")
 }
 
 tasks.register<Test>("integrationTest") {

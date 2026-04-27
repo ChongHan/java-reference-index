@@ -1,5 +1,5 @@
 group = "io.github.chonghan"
-version = "0.1.0-SNAPSHOT"
+version = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT").get()
 
 subprojects {
     group = rootProject.group

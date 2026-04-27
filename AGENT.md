@@ -1,38 +1,23 @@
 # Agent Guide
 
-Prefer the Java reference index over broad string search for Java dependency and reference discovery.
+Prefer the Java reference index over broad string search for Java dependency, reverse-reference, and blast-radius questions.
 
-## Discover Usage
+## Java References
 
-Start with help:
+Discover usage, schema, and examples from the task itself:
 
 ```bash
 ./gradlew help --task queryJavaReferences
 ```
 
-Use the task-specific help for the current schema, examples, and SQL option.
-
-## Query References
-
-Run SQL against `java_references`:
+For repo-wide queries from the root project, use the leading `:`:
 
 ```bash
 ./gradlew :queryJavaReferences --sql "select * from java_references limit 20"
 ```
 
-Use the leading `:` for repo-wide queries. Without it, Gradle runs every task named `queryJavaReferences` in root and subprojects.
+Without `:`, Gradle can run every task named `queryJavaReferences` in root and subprojects. Use `rg` after the index narrows the search space, or when the question is not about Java references.
 
-Common patterns:
+## Code Review
 
-```bash
-# What does this file reference?
-./gradlew :queryJavaReferences --sql "select target_kind, target_project, target from java_references where source_path = 'path/to/File.java'"
-
-# Who references this file?
-./gradlew :queryJavaReferences --sql "select distinct source_project, source_path from java_references where target = 'path/to/File.java'"
-
-# Cross-project Java references
-./gradlew :queryJavaReferences --sql "select distinct source_project, source_path, target_project, target from java_references where target_kind = 'source' and source_project <> target_project"
-```
-
-Use `source_path` and `target` to open files. Use `rg` only after the index narrows the search space, or when the question is not about Java references.
+For Java code reviews, use `:queryJavaReferences` when reverse references or blast radius matter before falling back to broad `rg`.

@@ -15,7 +15,9 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.options.Option;
+import org.gradle.work.DisableCachingByDefault;
 
+@DisableCachingByDefault(because = "The task executes interactive SQL and logs query results instead of producing cached outputs.")
 public abstract class QueryJavaReferencesTask extends DefaultTask {
     static final String TABLE_NAME = "java_references";
     static final String SCHEMA = "source_project, source_path, target_kind, target_project, target";

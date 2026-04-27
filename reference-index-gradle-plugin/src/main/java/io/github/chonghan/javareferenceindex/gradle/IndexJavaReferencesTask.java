@@ -19,6 +19,7 @@ import java.util.List;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
@@ -28,6 +29,7 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
+@CacheableTask
 public abstract class IndexJavaReferencesTask extends DefaultTask {
     private List<SourceSetSpec> sourceSets = List.of();
 
@@ -141,15 +143,14 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         }
 
         private List<String> configurationInputs() {
+            Path rootDirPath = Path.of(rootDir);
             return java.util.stream.Stream.of(
                     java.util.stream.Stream.of(
                         "projectPath=" + projectPath,
-                        "sourceSetName=" + sourceSetName,
-                        "rootDir=" + rootDir
+                        "sourceSetName=" + sourceSetName
                     ),
-                    sourceRoots.stream().map(sourceRoot -> "sourceRoot=" + sourceRoot),
-                    sourceFiles.stream().map(sourceFile -> "sourceFile=" + sourceFile),
-                    classpathEntries.stream().map(classpathEntry -> "classpathEntry=" + classpathEntry)
+                    sourceRoots.stream().map(sourceRoot -> "sourceRoot=" + sourceRoot.cacheKey(rootDirPath)),
+                    sourceFiles.stream().map(sourceFile -> "sourceFile=" + relativePath(rootDirPath, Path.of(sourceFile)))
                 )
                 .flatMap(stream -> stream)
                 .sorted()
@@ -157,7 +158,20 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         }
     }
 
-    public record SourceRootSpec(String path, String projectPath, String sourceSetName) implements Serializable {}
+    public record SourceRootSpec(String path, String projectPath, String sourceSetName) implements Serializable {
+        private String cacheKey(Path rootDir) {
+            return relativePath(rootDir, Path.of(path)) + "|" + projectPath + "|" + sourceSetName;
+        }
+    }
 
     public record ClasspathEntrySpec(String path, String target) implements Serializable {}
+
+    private static String relativePath(Path rootDir, Path path) {
+        Path normalizedRootDir = rootDir.toAbsolutePath().normalize();
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        if (!normalizedPath.startsWith(normalizedRootDir)) {
+            return normalizedPath.getFileName().toString();
+        }
+        return normalizedRootDir.relativize(normalizedPath).toString().replace('\\', '/');
+    }
 }

@@ -108,6 +108,38 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void indexJavaReferences_isRelocatableWithBuildCache() throws IOException {
+        Path firstProject = projectDir.resolve("first");
+        Path secondProject = projectDir.resolve("second");
+        Path gradleUserHome = projectDir.resolve("gradle-user-home");
+        copyFixture("single-project", firstProject);
+        copyFixture("single-project", secondProject);
+
+        var firstResult = gradle(
+            firstProject,
+            "--gradle-user-home",
+            gradleUserHome.toString(),
+            "--build-cache",
+            "indexJavaReferences"
+        );
+        var secondResult = gradle(
+            secondProject,
+            "--gradle-user-home",
+            gradleUserHome.toString(),
+            "--build-cache",
+            "indexJavaReferences"
+        );
+
+        assertThat(firstResult.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(secondResult.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
+        assertThat(referencesCsv(secondProject))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target",
+                ":,src/main/java/example/App.java,source,:,src/main/java/example/Helper.java"
+            );
+    }
+
+    @Test
     void queryJavaReferences_withSql_printsRowsFromGeneratedCsvFiles() throws IOException {
         copyFixture("single-project");
 
@@ -216,8 +248,12 @@ class JavaReferenceIndexPluginTest {
     }
 
     private org.gradle.testkit.runner.BuildResult gradle(String... arguments) {
+        return gradle(projectDir, arguments);
+    }
+
+    private org.gradle.testkit.runner.BuildResult gradle(Path projectDirectory, String... arguments) {
         return GradleRunner.create()
-            .withProjectDir(projectDir.toFile())
+            .withProjectDir(projectDirectory.toFile())
             .withPluginClasspath()
             .withArguments(arguments)
             .forwardOutput()
@@ -233,10 +269,14 @@ class JavaReferenceIndexPluginTest {
     }
 
     private void copyFixture(String fixtureName) throws IOException {
+        copyFixture(fixtureName, projectDir);
+    }
+
+    private static void copyFixture(String fixtureName, Path targetRoot) throws IOException {
         Path fixtureRoot = fixtureRoot(fixtureName);
         try (Stream<Path> paths = Files.walk(fixtureRoot)) {
             for (Path source : paths.toList()) {
-                Path target = projectDir.resolve(fixtureRoot.relativize(source).toString());
+                Path target = targetRoot.resolve(fixtureRoot.relativize(source).toString());
                 if (Files.isDirectory(source)) {
                     Files.createDirectories(target);
                 } else {

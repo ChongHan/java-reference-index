@@ -140,6 +140,44 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void indexJavaReferences_fromCacheWithNoSources_doesNotDeleteExistingReferenceCsvFiles() throws IOException {
+        Path firstProject = projectDir.resolve("first");
+        Path secondProject = projectDir.resolve("second");
+        Path gradleUserHome = projectDir.resolve("gradle-user-home");
+        copyFixture("subproject-without-java-sources", firstProject);
+        copyFixture("subproject-without-java-sources", secondProject);
+
+        var firstResult = gradle(
+            firstProject,
+            "--gradle-user-home",
+            gradleUserHome.toString(),
+            "--build-cache",
+            ":empty:indexJavaReferences"
+        );
+        Path existingCsv = secondProject.resolve("empty/build/reference-index/main-references.csv");
+        Files.createDirectories(existingCsv.getParent());
+        Files.writeString(
+            existingCsv,
+            """
+            source_project,source_path,target_kind,target_project,target
+            :empty,empty/src/main/java/example/App.java,source,:empty,empty/src/main/java/example/Helper.java
+            """
+        );
+
+        var secondResult = gradle(
+            secondProject,
+            "--gradle-user-home",
+            gradleUserHome.toString(),
+            "--build-cache",
+            ":empty:indexJavaReferences"
+        );
+
+        assertThat(firstResult.task(":empty:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(secondResult.task(":empty:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
+        assertThat(existingCsv).isRegularFile();
+    }
+
+    @Test
     void queryJavaReferences_withSql_printsRowsFromGeneratedCsvFiles() throws IOException {
         copyFixture("single-project");
 

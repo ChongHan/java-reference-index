@@ -24,14 +24,24 @@ import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Internal;
-import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.api.tasks.OutputFiles;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
 @CacheableTask
 public abstract class IndexJavaReferencesTask extends DefaultTask {
+    private String projectPath;
     private List<SourceSetSpec> sourceSets = List.of();
+
+    @Input
+    public String getProjectPath() {
+        return projectPath;
+    }
+
+    public void setProjectPath(String projectPath) {
+        this.projectPath = projectPath;
+    }
 
     @Internal
     public List<SourceSetSpec> getSourceSets() {
@@ -76,8 +86,15 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             .toList();
     }
 
-    @OutputDirectory
+    @Internal
     public abstract DirectoryProperty getOutputDirectory();
+
+    @OutputFiles
+    public List<File> getOutputFiles() {
+        return sourceSets.stream()
+            .map(sourceSet -> outputFile(sourceSet.sourceSetName()).toFile())
+            .toList();
+    }
 
     @TaskAction
     public void indexJavaReferences() {
@@ -115,8 +132,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
     }
 
     private void writeCsv(SourceSetSpec sourceSet, ProjectIndex index) {
-        Path outputFile = getOutputDirectory().get().getAsFile().toPath()
-            .resolve(sourceSet.sourceSetName() + "-references.csv");
+        Path outputFile = outputFile(sourceSet.sourceSetName());
 
         try {
             ReferenceIndexCsvWriters.standard().write(
@@ -126,6 +142,11 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         } catch (IOException e) {
             throw new GradleException("Failed to write Java reference index CSV", e);
         }
+    }
+
+    private Path outputFile(String sourceSetName) {
+        return getOutputDirectory().get().getAsFile().toPath()
+            .resolve(sourceSetName + "-references.csv");
     }
 
     public record SourceSetSpec(

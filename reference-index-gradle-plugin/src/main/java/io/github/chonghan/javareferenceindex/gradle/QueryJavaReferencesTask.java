@@ -56,10 +56,10 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             Source row: %s
             Binary row: %s
             Use -q for clean query output without Gradle task noise.
-            Repo-wide query from root: ./gradlew -q :queryJavaReferences --sql "select * from java_references limit 20"
-            Use the leading ':' from root; otherwise Gradle can run every queryJavaReferences task in root and subprojects.
-            What this file references: ./gradlew -q :queryJavaReferences --sql "%s"
-            Who references this file: ./gradlew -q :queryJavaReferences --sql "%s"
+            Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
+            Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.
+            What this file references: ./gradlew -q :javaReferenceQuery --sql "%s"
+            Who references this file: ./gradlew -q :javaReferenceQuery --sql "%s"
             """.formatted(
                 TABLE_NAME,
                 SCHEMA,
@@ -76,7 +76,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
     public abstract ConfigurableFileCollection getReferenceIndexFiles();
 
     @TaskAction
-    public void queryJavaReferences() {
+    public void javaReferenceQuery() {
         if (sql == null || sql.isBlank()) {
             throw new GradleException("Pass a SQL query with --sql \"select * from java_references\"");
         }

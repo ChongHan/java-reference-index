@@ -97,7 +97,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
     }
 
     @TaskAction
-    public void indexJavaReferences() {
+    public void javaReferenceIndex() {
         sourceSets.forEach(this::indexSourceSet);
     }
 

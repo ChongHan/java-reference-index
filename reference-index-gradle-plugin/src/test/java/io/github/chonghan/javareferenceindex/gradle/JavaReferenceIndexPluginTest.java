@@ -18,12 +18,12 @@ class JavaReferenceIndexPluginTest {
     Path projectDir;
 
     @Test
-    void indexJavaReferences_withSingleProject_writesSourceReferences() throws IOException {
+    void javaReferenceIndex_withSingleProject_writesSourceReferences() throws IOException {
         copyFixture("single-project");
 
-        var result = gradle("indexJavaReferences");
+        var result = gradle("javaReferenceIndex");
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -32,12 +32,12 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_withProjectDependency_writesDependentProjectSourceReference() throws IOException {
+    void javaReferenceIndex_withProjectDependency_writesDependentProjectSourceReference() throws IOException {
         copyFixture("multi-project");
 
-        var result = gradle(":app:indexJavaReferences");
+        var result = gradle(":app:javaReferenceIndex");
 
-        assertThat(result.task(":app:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -46,15 +46,15 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_fromRootProject_indexesAllSubprojects() throws IOException {
+    void javaReferenceIndex_fromRootProject_indexesAllSubprojects() throws IOException {
         copyFixture("multi-project");
 
-        var result = gradle(":indexJavaReferences");
+        var result = gradle(":javaReferenceIndex");
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":app:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":lib:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":unused:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":lib:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":unused:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -65,12 +65,12 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_withExternalDependency_writesBinaryReference() throws IOException {
+    void javaReferenceIndex_withExternalDependency_writesBinaryReference() throws IOException {
         copyFixture("external-dependency");
 
-        var result = gradle("indexJavaReferences");
+        var result = gradle("javaReferenceIndex");
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -79,12 +79,12 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_withTestSourceSet_resolvesMainSourceReference() throws IOException {
+    void javaReferenceIndex_withTestSourceSet_resolvesMainSourceReference() throws IOException {
         copyFixture("test-source-set");
 
-        var result = gradle("indexJavaReferences");
+        var result = gradle("javaReferenceIndex");
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir, "test"))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -93,13 +93,13 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_withGeneratedSourceOnTestClasspath_resolvesGeneratedSourceReference() throws IOException {
+    void javaReferenceIndex_withGeneratedSourceOnTestClasspath_resolvesGeneratedSourceReference() throws IOException {
         copyFixture("generated-source-set");
 
-        var result = gradle("indexJavaReferences");
+        var result = gradle("javaReferenceIndex");
 
         assertThat(result.task(":compileGeneratedJava").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir, "test"))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -108,7 +108,7 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_isRelocatableWithBuildCache() throws IOException {
+    void javaReferenceIndex_isRelocatableWithBuildCache() throws IOException {
         Path firstProject = projectDir.resolve("first");
         Path secondProject = projectDir.resolve("second");
         Path gradleUserHome = projectDir.resolve("gradle-user-home");
@@ -120,18 +120,18 @@ class JavaReferenceIndexPluginTest {
             "--gradle-user-home",
             gradleUserHome.toString(),
             "--build-cache",
-            "indexJavaReferences"
+            "javaReferenceIndex"
         );
         var secondResult = gradle(
             secondProject,
             "--gradle-user-home",
             gradleUserHome.toString(),
             "--build-cache",
-            "indexJavaReferences"
+            "javaReferenceIndex"
         );
 
-        assertThat(firstResult.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(secondResult.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
+        assertThat(firstResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(secondResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
         assertThat(referencesCsv(secondProject))
             .containsExactly(
                 "source_project,source_path,target_kind,target_project,target",
@@ -140,7 +140,7 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void indexJavaReferences_fromCacheWithNoSources_doesNotDeleteExistingReferenceCsvFiles() throws IOException {
+    void javaReferenceIndex_fromCacheWithNoSources_doesNotDeleteExistingReferenceCsvFiles() throws IOException {
         Path firstProject = projectDir.resolve("first");
         Path secondProject = projectDir.resolve("second");
         Path gradleUserHome = projectDir.resolve("gradle-user-home");
@@ -152,7 +152,7 @@ class JavaReferenceIndexPluginTest {
             "--gradle-user-home",
             gradleUserHome.toString(),
             "--build-cache",
-            ":empty:indexJavaReferences"
+            ":empty:javaReferenceIndex"
         );
         Path existingCsv = secondProject.resolve("empty/build/reference-index/main-references.csv");
         Files.createDirectories(existingCsv.getParent());
@@ -169,43 +169,43 @@ class JavaReferenceIndexPluginTest {
             "--gradle-user-home",
             gradleUserHome.toString(),
             "--build-cache",
-            ":empty:indexJavaReferences"
+            ":empty:javaReferenceIndex"
         );
 
-        assertThat(firstResult.task(":empty:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(secondResult.task(":empty:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
+        assertThat(firstResult.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(secondResult.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
         assertThat(existingCsv).isRegularFile();
     }
 
     @Test
-    void queryJavaReferences_withSql_printsRowsFromGeneratedCsvFiles() throws IOException {
+    void javaReferenceQuery_withSql_printsRowsFromGeneratedCsvFiles() throws IOException {
         copyFixture("single-project");
 
         var result = gradle(
-            "queryJavaReferences",
+            "javaReferenceQuery",
             "--sql",
             "select source_path, target_kind, target from java_references order by source_path, target"
         );
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
             .contains("source_path,target_kind,target")
             .contains("src/main/java/example/App.java,source,src/main/java/example/Helper.java");
     }
 
     @Test
-    void queryJavaReferences_withQuietLogging_printsOnlyQueryResult() throws IOException {
+    void javaReferenceQuery_withQuietLogging_printsOnlyQueryResult() throws IOException {
         copyFixture("single-project");
 
         var result = gradle(
             "-q",
-            "queryJavaReferences",
+            "javaReferenceQuery",
             "--sql",
             "select source_path, target_kind, target from java_references order by source_path, target"
         );
 
-        assertThat(result.task(":queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput()).isEqualTo("""
             source_path,target_kind,target
             src/main/java/example/App.java,source,src/main/java/example/Helper.java
@@ -213,37 +213,37 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void queryJavaReferences_fromRootProject_queriesSubprojectCsvFiles() throws IOException {
+    void javaReferenceQuery_fromRootProject_queriesSubprojectCsvFiles() throws IOException {
         copyFixture("multi-project");
 
         var result = gradle(
-            ":queryJavaReferences",
+            ":javaReferenceQuery",
             "--sql",
             "select source_project, target_project, target from java_references where target_kind = 'source' order by target"
         );
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":app:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
             .contains("source_project,target_project,target")
             .contains(":app,:lib,lib/src/main/java/lib/LibraryType.java");
     }
 
     @Test
-    void queryJavaReferences_withSubprojectWithoutJavaSources_queriesAvailableCsvFiles() throws IOException {
+    void javaReferenceQuery_withSubprojectWithoutJavaSources_queriesAvailableCsvFiles() throws IOException {
         copyFixture("subproject-without-java-sources");
 
         var result = gradle(
-            ":queryJavaReferences",
+            ":javaReferenceQuery",
             "--sql",
             "select source_project, source_path, target_kind, target from java_references order by source_path, target"
         );
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":app:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":empty:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
             .contains("source_project,source_path,target_kind,target")
             .contains(":app,app/src/main/java/app/App.java,source,app/src/main/java/app/Helper.java");
@@ -251,27 +251,27 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void queryJavaReferences_fromSubprojectWithoutJavaSources_queriesEmptyTable() throws IOException {
+    void javaReferenceQuery_fromSubprojectWithoutJavaSources_queriesEmptyTable() throws IOException {
         copyFixture("subproject-without-java-sources");
 
         var result = gradle(
-            ":empty:queryJavaReferences",
+            ":empty:javaReferenceQuery",
             "--sql",
             "select count(*) as rows from java_references"
         );
 
-        assertThat(result.task(":empty:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":empty:queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":empty:javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
             .contains("rows\n0");
         assertThat(projectDir.resolve("empty/build/reference-index/main-references.csv")).doesNotExist();
     }
 
     @Test
-    void queryJavaReferences_help_describesUsageAndSchema() throws IOException {
+    void javaReferenceQuery_help_describesUsageAndSchema() throws IOException {
         copyFixture("single-project");
 
-        var result = gradle("help", "--task", "queryJavaReferences");
+        var result = gradle("help", "--task", "javaReferenceQuery");
 
         assertThat(result.task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
@@ -284,20 +284,20 @@ class JavaReferenceIndexPluginTest {
             .contains("Source row: :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java")
             .contains("Binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.DirectBuffer")
             .contains("Use -q for clean query output without Gradle task noise.")
-            .contains("Repo-wide query from root: ./gradlew -q :queryJavaReferences --sql \"select * from java_references limit 20\"")
-            .contains("Use the leading ':' from root; otherwise Gradle can run every queryJavaReferences task in root and subprojects.")
-            .contains("What this file references: ./gradlew -q :queryJavaReferences --sql \"select target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'\"")
-            .contains("Who references this file: ./gradlew -q :queryJavaReferences --sql \"select source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'\"")
+            .contains("Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql \"select * from java_references limit 20\"")
+            .contains("Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.")
+            .contains("What this file references: ./gradlew -q :javaReferenceQuery --sql \"select target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'\"")
+            .contains("Who references this file: ./gradlew -q :javaReferenceQuery --sql \"select source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'\"")
             .contains("Options")
             .contains("--sql")
             .contains("SQL query to run against the java_references table.");
     }
 
     @Test
-    void indexJavaReferences_help_describesOutputCsv() throws IOException {
+    void javaReferenceIndex_help_describesOutputCsv() throws IOException {
         copyFixture("single-project");
 
-        var result = gradle("help", "--task", "indexJavaReferences");
+        var result = gradle("help", "--task", "javaReferenceIndex");
 
         assertThat(result.task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())

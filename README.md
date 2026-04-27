@@ -19,13 +19,13 @@ The plugin configures every subproject that applies the Gradle `java` plugin.
 Query from the root project:
 
 ```bash
-./gradlew :queryJavaReferences --sql "select * from java_references limit 20"
+./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
 ```
 
 Ask Gradle for the live schema and examples:
 
 ```bash
-./gradlew help --task queryJavaReferences
+./gradlew help --task javaReferenceQuery
 ```
 
 ## What Agents Can Ask
@@ -33,24 +33,24 @@ Ask Gradle for the live schema and examples:
 What does this file reference?
 
 ```bash
-./gradlew :queryJavaReferences --sql "select target_kind, target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'"
+./gradlew -q :javaReferenceQuery --sql "select target_kind, target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'"
 ```
 
 Who references this source file?
 
 ```bash
-./gradlew :queryJavaReferences --sql "select distinct source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'"
+./gradlew -q :javaReferenceQuery --sql "select distinct source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'"
 ```
 
 Which external types does a project use?
 
 ```bash
-./gradlew :queryJavaReferences --sql "select distinct target_project, target from java_references where source_project = ':app' and target_kind = 'binary'"
+./gradlew -q :javaReferenceQuery --sql "select distinct target_project, target from java_references where source_project = ':app' and target_kind = 'binary'"
 ```
 
 ## Table Shape
 
-`queryJavaReferences` exposes a DuckDB table named `java_references`.
+`javaReferenceQuery` exposes a DuckDB table named `java_references`.
 
 | Column | Description |
 |---|---|
@@ -74,7 +74,7 @@ source_project,source_path,target_kind,target_project,target
 2. Eclipse JDT parses each source file and resolves type bindings.
 3. The core indexer records source references when the target type exists as source in the build.
 4. Otherwise it records binary references to dependency coordinates or compiled classpath entries.
-5. CSV files are written under each subproject's `build/reference-index/`, then loaded into DuckDB by `queryJavaReferences`.
+5. CSV files are written under each subproject's `build/reference-index/`, then loaded into DuckDB by `javaReferenceQuery`.
 
 Source references are preferred over binary references. If a type is available as source, the index points to the source file even if compiled classes for the same type are also on the classpath.
 

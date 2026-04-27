@@ -27,13 +27,13 @@ class RealWorldPluginTest {
     Path tempDir;
 
     @Test
-    void indexJavaReferences_withAgronaSubmodule_writesQueryableCsvFiles() throws IOException {
+    void javaReferenceIndex_withAgronaSubmodule_writesQueryableCsvFiles() throws IOException {
         Path agrona = realWorldProject("agrona");
-        var result = indexJavaReferences(agrona, true);
+        var result = javaReferenceIndex(agrona, true);
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
-        assertThat(result.task(":agrona:indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
-        assertThat(result.task(":agrona-agent:indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
+        assertThat(result.task(":agrona:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
+        assertThat(result.task(":agrona-agent:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
 
         assertReferenceCsvIsUseful(agrona, agrona.resolve("agrona/build/reference-index/main-references.csv"));
 
@@ -56,14 +56,14 @@ class RealWorldPluginTest {
     }
 
     @Test
-    void indexJavaReferences_withAeronSubmodule_writesQueryableCsvFiles() throws IOException {
+    void javaReferenceIndex_withAeronSubmodule_writesQueryableCsvFiles() throws IOException {
         Path aeron = realWorldProject("aeron");
-        var result = indexJavaReferences(aeron, false);
+        var result = javaReferenceIndex(aeron, false);
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
-        assertThat(result.task(":aeron-client:indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
-        assertThat(result.task(":aeron-driver:indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
-        assertThat(result.task(":aeron-archive:indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
+        assertThat(result.task(":aeron-client:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
+        assertThat(result.task(":aeron-driver:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
+        assertThat(result.task(":aeron-archive:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
 
         Path aeronClientCsv = aeron.resolve("aeron-client/build/reference-index/main-references.csv");
         List<CsvRow> aeronClientRows = assertReferenceCsvIsUseful(aeron, aeronClientCsv);
@@ -98,7 +98,7 @@ class RealWorldPluginTest {
         return project;
     }
 
-    private org.gradle.testkit.runner.BuildResult indexJavaReferences(Path project, boolean configurationCache) throws IOException {
+    private org.gradle.testkit.runner.BuildResult javaReferenceIndex(Path project, boolean configurationCache) throws IOException {
         Path initScript = tempDir.resolve(project.getFileName() + "-apply-java-reference-index.gradle");
         Files.writeString(
             initScript,
@@ -127,7 +127,7 @@ class RealWorldPluginTest {
                 "--rerun-tasks",
                 "--quiet",
                 "--stacktrace",
-                ":indexJavaReferences"
+                ":javaReferenceIndex"
         ));
         if (configurationCache) {
             arguments.add(3, "--configuration-cache");

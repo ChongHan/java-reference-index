@@ -20,8 +20,8 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 
 public class JavaReferenceIndexPlugin implements Plugin<Project> {
-    static final String INDEX_TASK_NAME = "indexJavaReferences";
-    static final String QUERY_TASK_NAME = "queryJavaReferences";
+    static final String INDEX_TASK_NAME = "javaReferenceIndex";
+    static final String QUERY_TASK_NAME = "javaReferenceQuery";
 
     @Override
     public void apply(Project project) {

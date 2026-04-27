@@ -143,6 +143,43 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void queryJavaReferences_withSubprojectWithoutJavaSources_queriesAvailableCsvFiles() throws IOException {
+        copyFixture("subproject-without-java-sources");
+
+        var result = gradle(
+            ":queryJavaReferences",
+            "--sql",
+            "select source_project, source_path, target_kind, target from java_references order by source_path, target"
+        );
+
+        assertThat(result.task(":indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":app:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":empty:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("source_project,source_path,target_kind,target")
+            .contains(":app,app/src/main/java/app/App.java,source,app/src/main/java/app/Helper.java");
+        assertThat(projectDir.resolve("empty/build/reference-index/main-references.csv")).doesNotExist();
+    }
+
+    @Test
+    void queryJavaReferences_fromSubprojectWithoutJavaSources_queriesEmptyTable() throws IOException {
+        copyFixture("subproject-without-java-sources");
+
+        var result = gradle(
+            ":empty:queryJavaReferences",
+            "--sql",
+            "select count(*) as rows from java_references"
+        );
+
+        assertThat(result.task(":empty:indexJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":empty:queryJavaReferences").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("rows\n0");
+        assertThat(projectDir.resolve("empty/build/reference-index/main-references.csv")).doesNotExist();
+    }
+
+    @Test
     void queryJavaReferences_help_describesUsageAndSchema() throws IOException {
         copyFixture("single-project");
 
@@ -158,8 +195,10 @@ class JavaReferenceIndexPluginTest {
             .contains("target is the referenced source path or binary type")
             .contains("Source row: :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java")
             .contains("Binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.DirectBuffer")
-            .contains("What this file references: ./gradlew queryJavaReferences --sql \"select target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'\"")
-            .contains("Who references this file: ./gradlew queryJavaReferences --sql \"select source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'\"")
+            .contains("Repo-wide query from root: ./gradlew :queryJavaReferences --sql \"select * from java_references limit 20\"")
+            .contains("Use the leading ':' from root; otherwise Gradle can run every queryJavaReferences task in root and subprojects.")
+            .contains("What this file references: ./gradlew :queryJavaReferences --sql \"select target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'\"")
+            .contains("Who references this file: ./gradlew :queryJavaReferences --sql \"select source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'\"")
             .contains("Options")
             .contains("--sql")
             .contains("SQL query to run against the java_references table.");

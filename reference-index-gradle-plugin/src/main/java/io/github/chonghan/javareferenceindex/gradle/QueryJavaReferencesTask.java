@@ -53,8 +53,10 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             Columns: %s.
             Source row: %s
             Binary row: %s
-            What this file references: ./gradlew queryJavaReferences --sql "%s"
-            Who references this file: ./gradlew queryJavaReferences --sql "%s"
+            Repo-wide query from root: ./gradlew :queryJavaReferences --sql "select * from java_references limit 20"
+            Use the leading ':' from root; otherwise Gradle can run every queryJavaReferences task in root and subprojects.
+            What this file references: ./gradlew :queryJavaReferences --sql "%s"
+            Who references this file: ./gradlew :queryJavaReferences --sql "%s"
             """.formatted(
                 TABLE_NAME,
                 SCHEMA,
@@ -80,17 +82,25 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             .filter(File::isFile)
             .sorted()
             .toList();
-        if (csvFiles.isEmpty()) {
-            throw new GradleException("No Java reference index CSV files were found. Run indexJavaReferences first.");
-        }
-
         loadDuckDbDriver();
 
         try (var connection = DriverManager.getConnection("jdbc:duckdb:");
              var statement = connection.createStatement()) {
-            statement.execute("CREATE VIEW java_references AS SELECT * FROM read_csv("
-                + csvFilesArgument(csvFiles)
-                + ", header = true, all_varchar = true, union_by_name = true)");
+            if (csvFiles.isEmpty()) {
+                statement.execute("""
+                    CREATE TABLE java_references (
+                        source_project VARCHAR,
+                        source_path VARCHAR,
+                        target_kind VARCHAR,
+                        target_project VARCHAR,
+                        target VARCHAR
+                    )
+                    """);
+            } else {
+                statement.execute("CREATE VIEW java_references AS SELECT * FROM read_csv("
+                    + csvFilesArgument(csvFiles)
+                    + ", header = true, all_varchar = true, union_by_name = true)");
+            }
 
             boolean hasResultSet = statement.execute(sql);
             if (!hasResultSet) {

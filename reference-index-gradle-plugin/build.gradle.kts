@@ -1,3 +1,5 @@
+import org.gradle.plugin.compatibility.compatibility
+
 plugins {
     `java-gradle-plugin`
     alias(libs.plugins.gradle.plugin.publish)
@@ -28,9 +30,14 @@ gradlePlugin {
         create("javaReferenceIndex") {
             id = "io.github.chonghan.java-reference-index"
             displayName = "Java Reference Index"
-            description = "Builds queryable Java source reference indexes for Gradle projects."
-            tags = listOf("java", "references", "analysis", "jdt", "duckdb")
+            description = "Indexes Java source references for code navigation and blast-radius analysis."
+            tags = listOf("java", "references", "static-analysis", "jdt", "duckdb")
             implementationClass = "io.github.chonghan.javareferenceindex.gradle.JavaReferenceIndexPlugin"
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
         }
     }
 }

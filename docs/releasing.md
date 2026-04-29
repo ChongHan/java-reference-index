@@ -4,12 +4,20 @@ Maintainers publish the Gradle plugin to the Gradle Plugin Portal and Maven Cent
 
 ## Preflight
 
-Choose the release version, for example `0.1.1`, then run:
+Choose a final release version, for example `0.1.1`. The Gradle Plugin Portal rejects `SNAPSHOT` versions.
+
+Run the build and Plugin Portal validation:
 
 ```bash
 ./gradlew build
 ./gradlew :reference-index-gradle-plugin:publishPlugins --validate-only -PreleaseVersion=0.1.1
 ```
+
+Before publishing, check:
+
+- `README.md` documents the plugin in English.
+- `reference-index-gradle-plugin/build.gradle.kts` has the correct Plugin Portal metadata: id, display name, description, tags, website, VCS URL, and feature compatibility.
+- The release version is not already published. Published plugin versions cannot be overwritten.
 
 ## Tag
 
@@ -23,13 +31,13 @@ git push origin v0.1.1
 
 ## Publish
 
-Publish to the Gradle Plugin Portal:
+Publish to the Gradle Plugin Portal. Use Gradle Portal credentials from `$HOME/.gradle/gradle.properties` or the `GRADLE_PUBLISH_KEY` and `GRADLE_PUBLISH_SECRET` environment variables.
 
 ```bash
 ./gradlew :reference-index-gradle-plugin:publishPlugins -PreleaseVersion=0.1.1
 ```
 
-Publish to Maven Central:
+Publish to Maven Central. Use Maven Central credentials from Gradle properties or `MAVEN_CENTRAL_USERNAME` and `MAVEN_CENTRAL_PASSWORD`.
 
 ```bash
 ./gradlew publishAggregationToCentralPortal -PreleaseVersion=0.1.1
@@ -44,6 +52,12 @@ Check Maven Central after the deployment is released:
 ```bash
 curl -I https://repo.maven.apache.org/maven2/io/github/chonghan/reference-index-gradle-plugin/0.1.1/reference-index-gradle-plugin-0.1.1.pom
 curl -I https://repo.maven.apache.org/maven2/io/github/chonghan/java-reference-index/io.github.chonghan.java-reference-index.gradle.plugin/0.1.1/io.github.chonghan.java-reference-index.gradle.plugin-0.1.1.pom
+```
+
+Check the Plugin Portal page after publishing:
+
+```text
+https://plugins.gradle.org/plugin/io.github.chonghan.java-reference-index/0.1.1
 ```
 
 Create a GitHub release from the pushed tag with concise release notes.

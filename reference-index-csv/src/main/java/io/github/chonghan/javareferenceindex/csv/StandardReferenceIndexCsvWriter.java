@@ -15,7 +15,8 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
         "source_path",
         "target_kind",
         "target_project",
-        "target"
+        "target",
+        "target_type"
     };
 
     @Override
@@ -37,7 +38,8 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
                     sourcePath,
                     "source",
                     reference.targetProject().path(),
-                    relativePath(reference.sourceFile(), rootDirectory)
+                    relativePath(reference.sourceFile(), rootDirectory),
+                    reference.qualifiedName()
                 ));
             }
 
@@ -47,19 +49,28 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
                     sourcePath,
                     "binary",
                     reference.targetProject(),
-                    reference.target()
+                    reference.target(),
+                    reference.qualifiedName()
                 ));
             }
 
             for (var ignored : file.unresolvedReferences()) {
-                rows.add(new CsvReferenceRow(sourceProject, sourcePath, "", "", ""));
+                rows.add(new CsvReferenceRow(sourceProject, sourcePath, "", "", "", ""));
             }
         }
 
         try (BufferedWriter writer = Files.newBufferedWriter(request.outputFile(), StandardCharsets.UTF_8)) {
             writeRow(writer, HEADER);
             for (CsvReferenceRow row : rows) {
-                writeRow(writer, row.sourceProject(), row.sourcePath(), row.targetKind(), row.targetProject(), row.target());
+                writeRow(
+                    writer,
+                    row.sourceProject(),
+                    row.sourcePath(),
+                    row.targetKind(),
+                    row.targetProject(),
+                    row.target(),
+                    row.targetType()
+                );
             }
         }
     }
@@ -103,6 +114,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
         String sourcePath,
         String targetKind,
         String targetProject,
-        String target
+        String target,
+        String targetType
     ) {}
 }

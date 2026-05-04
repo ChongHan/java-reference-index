@@ -132,6 +132,20 @@ class SourceReferenceShapeTest {
     }
 
     @Test
+    void index_withOuterAndNestedClassReferences_recordsEachTargetTypeOnce() {
+        Path sourceRoot = fixtureSourceRoot("source-reference-shape-nested-class");
+        Path sourceFile = sourceRoot.resolve("example/UsesNestedClass.java");
+
+        var references = singleFile(indexer.index(request(sourceRoot, List.of(sourceFile), List.of())));
+
+        assertThat(references.sourceReferences())
+            .containsExactlyInAnyOrder(
+                sourceReference(sourceRoot, "OuterTarget.java", "example.OuterTarget"),
+                sourceReference(sourceRoot, "OuterTarget.java", "example.OuterTarget.InnerTarget")
+            );
+    }
+
+    @Test
     void index_withAnnotationMemberClassLiteral_resolvesAnnotationAndMemberValueTypes() {
         Path sourceRoot = fixtureSourceRoot("source-reference-shape-annotation-member-value");
         Path sourceFile = sourceRoot.resolve("example/UsesAnnotationMemberValue.java");

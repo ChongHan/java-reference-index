@@ -38,6 +38,7 @@ Columns:
 - `target_kind`: `source`, `binary`, or empty when unresolved
 - `target_project`: target Gradle project path, dependency coordinates, or compiled classpath entry
 - `target`: referenced source path, binary type name, or empty when unresolved
+- `target_type`: referenced Java type name; distinguishes multiple source types declared in the same target file
 
 ## Recipes
 
@@ -45,10 +46,10 @@ Columns:
 
 ```bash
 ./gradlew -q :javaReferenceQuery --sql "
-select distinct target_kind, target_project, target
+select distinct target_kind, target_project, target, target_type
 from java_references
 where source_path = 'path/to/File.java'
-order by target_kind, target_project, target
+order by target_kind, target_project, target, target_type
 "
 ```
 

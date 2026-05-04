@@ -35,7 +35,7 @@ Ask Gradle for the live schema and examples:
 What does this file reference?
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select target_kind, target_project, target from java_references where source_path = 'app/src/main/java/app/App.java'"
+./gradlew -q :javaReferenceQuery --sql "select target_kind, target_project, target, target_type from java_references where source_path = 'app/src/main/java/app/App.java'"
 ```
 
 Who references this source file?
@@ -61,13 +61,14 @@ Which external types does a project use?
 | `target_kind` | `source`, `binary`, or empty when unresolved |
 | `target_project` | Target Gradle project path, or dependency coordinates for binaries |
 | `target` | Referenced source path, binary type name, or empty when unresolved |
+| `target_type` | Referenced Java type name; distinguishes multiple source types declared in the same target file |
 
 Example rows:
 
 ```csv
-source_project,source_path,target_kind,target_project,target
-:app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java
-:app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList
+source_project,source_path,target_kind,target_project,target,target_type
+:app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType
+:app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList,org.agrona.collections.IntArrayList
 ```
 
 ## How It Works

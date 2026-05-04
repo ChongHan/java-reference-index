@@ -54,10 +54,10 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target",
-                ":apps:service-a,apps/service-a/src/main/java/app/App.java,source,:libs:shared,libs/shared/src/main/java/shared/LibraryType.java",
-                ":apps:service-a,apps/service-a/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList",
-                ":apps:service-a,apps/service-a/src/main/java/app/App.java,,,"
+                "source_project,source_path,target_kind,target_project,target,target_type",
+                ":apps:service-a,apps/service-a/src/main/java/app/App.java,source,:libs:shared,libs/shared/src/main/java/shared/LibraryType.java,shared.LibraryType",
+                ":apps:service-a,apps/service-a/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList,org.agrona.collections.IntArrayList",
+                ":apps:service-a,apps/service-a/src/main/java/app/App.java,,,,"
             );
     }
 
@@ -77,11 +77,11 @@ class StandardReferenceIndexCsvWriterTest {
         writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
 
         assertThat(Files.readAllLines(outputFile))
-            .containsExactly("source_project,source_path,target_kind,target_project,target");
+            .containsExactly("source_project,source_path,target_kind,target_project,target,target_type");
     }
 
     @Test
-    void write_withDuplicateReferences_writesEachTargetOnce() throws IOException {
+    void write_withDuplicateReferences_writesEachDistinctTargetTypeOnce() throws IOException {
         ProjectCoordinates app = new ProjectCoordinates(":app");
         ProjectCoordinates lib = new ProjectCoordinates(":lib");
         SourceSetCoordinates main = new SourceSetCoordinates("main");
@@ -93,6 +93,7 @@ class StandardReferenceIndexCsvWriterTest {
         createFile(libFile);
 
         SourceReference sourceReference = new SourceReference("lib.LibraryType", libFile, lib, main);
+        SourceReference nestedSourceReference = new SourceReference("lib.LibraryType.Nested", libFile, lib, main);
         BinaryReference binaryReference = new BinaryReference(
             "org.agrona.collections.IntArrayList",
             "org.agrona:agrona:2.4.1",
@@ -103,7 +104,7 @@ class StandardReferenceIndexCsvWriterTest {
             main,
             List.of(new FileReferenceSet(
                 appFile,
-                List.of(sourceReference, sourceReference),
+                List.of(sourceReference, sourceReference, nestedSourceReference, nestedSourceReference),
                 List.of(binaryReference, binaryReference),
                 List.of(new UnresolvedReference("MissingType"), new UnresolvedReference("OtherMissingType"))
             ))
@@ -114,10 +115,11 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target",
-                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java",
-                ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList",
-                ":app,app/src/main/java/app/App.java,,,"
+                "source_project,source_path,target_kind,target_project,target,target_type",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType.Nested",
+                ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList,org.agrona.collections.IntArrayList",
+                ":app,app/src/main/java/app/App.java,,,,"
             );
     }
 
@@ -147,8 +149,8 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target",
-                ":app,app/src/main/java/app/App.java,binary,\"example:quoted,\"\"dependency\"\":1.0\",example.Binary"
+                "source_project,source_path,target_kind,target_project,target,target_type",
+                ":app,app/src/main/java/app/App.java,binary,\"example:quoted,\"\"dependency\"\":1.0\",example.Binary,example.Binary"
             );
     }
 

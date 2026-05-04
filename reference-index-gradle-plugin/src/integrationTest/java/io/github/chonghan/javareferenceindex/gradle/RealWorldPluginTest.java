@@ -146,7 +146,7 @@ class RealWorldPluginTest {
         assertThat(lines)
             .isNotEmpty()
             .first()
-            .isEqualTo("source_project,source_path,target_kind,target_project,target");
+            .isEqualTo("source_project,source_path,target_kind,target_project,target,target_type");
         assertThat(lines).hasSizeGreaterThan(1);
 
         List<CsvRow> rows = lines.stream()
@@ -162,9 +162,11 @@ class RealWorldPluginTest {
                 if ("source".equals(row.targetKind())) {
                     assertThat(row.targetProject()).isNotBlank();
                     assertThat(projectRoot.resolve(row.target())).isRegularFile();
+                    assertThat(row.targetType()).isNotBlank();
                 } else if ("binary".equals(row.targetKind())) {
                     assertThat(row.targetProject()).isNotBlank();
                     assertThat(row.target()).isNotBlank();
+                    assertThat(row.targetType()).isNotBlank();
                 }
             });
         return rows;
@@ -172,8 +174,8 @@ class RealWorldPluginTest {
 
     private static CsvRow parseCsvRow(String line) {
         String[] columns = line.split(",", -1);
-        assertThat(columns).hasSize(5);
-        return new CsvRow(columns[0], columns[1], columns[2], columns[3], columns[4]);
+        assertThat(columns).hasSize(6);
+        return new CsvRow(columns[0], columns[1], columns[2], columns[3], columns[4], columns[5]);
     }
 
     private static void deleteIfExists(Path path) throws IOException {
@@ -212,6 +214,7 @@ class RealWorldPluginTest {
         String sourcePath,
         String targetKind,
         String targetProject,
-        String target
+        String target,
+        String targetType
     ) {}
 }

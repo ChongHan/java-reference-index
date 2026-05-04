@@ -1,5 +1,6 @@
 package example;
 
 public class UsesNestedClass {
-    private OuterTarget.InnerTarget target;
+    private OuterTarget outerTarget;
+    private OuterTarget.InnerTarget innerTarget;
 }

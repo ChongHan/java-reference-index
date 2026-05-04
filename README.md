@@ -1,5 +1,7 @@
 # java-reference-index
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 Build a queryable map of Java source references for coding agents.
 
 `java-reference-index` is a Gradle plugin that parses Java with Eclipse JDT, resolves references to source files and binary dependencies, writes CSV indexes per source set, and queries them with DuckDB SQL. It helps an agent answer "what does this file depend on?" and "who will be affected if this file changes?" before reading half the repository.
@@ -100,3 +102,7 @@ Run the build:
 ```
 
 Maintainer release steps are documented in [docs/releasing.md](docs/releasing.md).
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).

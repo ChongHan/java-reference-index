@@ -103,7 +103,7 @@ signing {
     sign(publishing.publications)
 }
 
-tasks.register<Test>("integrationTest") {
+val integrationTestTask = tasks.register<Test>("integrationTest") {
     description = "Runs the Gradle plugin against pinned real-world projects."
     group = "verification"
 
@@ -115,4 +115,8 @@ tasks.register<Test>("integrationTest") {
         layout.projectDirectory.dir("src/integrationTest/fixtures").asFile.absolutePath
     )
     useJUnitPlatform()
+}
+
+tasks.check {
+    dependsOn(integrationTestTask)
 }

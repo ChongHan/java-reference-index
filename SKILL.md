@@ -27,74 +27,22 @@ For repo-wide queries from the root project, use:
 ./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
 ```
 
-## Table
+## Querying
 
-`javaReferenceQuery` exposes a DuckDB table named `java_references`.
+`javaReferenceQuery` exposes a DuckDB table named `java_references`. Treat `./gradlew help --task javaReferenceQuery` as the source of truth for the live schema and examples.
 
-Columns:
+Use these patterns after checking the live schema:
 
-- `source_project`: Gradle project path containing the referencing file
-- `source_path`: Java source path relative to the root project
-- `target_kind`: `source`, `binary`, or empty when unresolved
-- `target_project`: target Gradle project path, dependency coordinates, or compiled classpath entry
-- `target_path`: referenced source path for source references, or empty for binary/unresolved references
-- `target_type`: referenced Java type name; distinguishes multiple source types declared in the same target file
+- Forward references: filter by `source_path = 'path/to/File.java'`.
+- Direct reverse source references: filter by `target_kind = 'source'` and the source target path column from help.
+- Binary references: filter by `target_kind = 'binary'`, then use the dependency/owner column and Java type column from help.
 
-## Recipes
-
-### What does this file reference?
-
-```bash
-./gradlew -q :javaReferenceQuery --sql "
-select distinct target_kind, target_project, target_path, target_type
-from java_references
-where source_path = 'path/to/File.java'
-order by target_kind, target_project, target_path, target_type
-"
-```
-
-### Who directly references this source file?
-
-```bash
-./gradlew -q :javaReferenceQuery --sql "
-select distinct source_project, source_path
-from java_references
-where target_kind = 'source'
-  and target_path = 'path/to/Target.java'
-order by source_project, source_path
-"
-```
-
-### Which external/binary types does a project use?
-
-```bash
-./gradlew -q :javaReferenceQuery --sql "
-select distinct target_project, target_type
-from java_references
-where source_project = ':project-name'
-  and target_kind = 'binary'
-order by target_project, target_type
-"
-```
-
-### Which source files reference a binary dependency or type?
-
-```bash
-./gradlew -q :javaReferenceQuery --sql "
-select distinct source_project, source_path, target_project, target_type
-from java_references
-where target_kind = 'binary'
-  and (target_project like 'group:artifact:%' or target_type = 'fully.qualified.TypeName')
-order by source_project, source_path, target_project, target_type
-"
-```
-
-### Code review / blast radius checklist
+## Code review / blast radius checklist
 
 Before editing or reviewing a Java file when impact matters:
 
-1. Query direct reverse references with `target_path = '<changed source path>'`.
-2. Query forward references with `source_path = '<changed source path>'` if dependency context matters.
+1. Query direct reverse references for the changed source path.
+2. Query forward references for the changed source path if dependency context matters.
 3. Read only the changed file and the candidate dependent files returned by the index.
 4. Use `rg` only after the index narrows the search space, or when the question is not about Java references.
 

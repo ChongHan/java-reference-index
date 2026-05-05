@@ -45,13 +45,14 @@ class RealWorldPluginTest {
                 assertThat(row.sourcePath()).startsWith("agrona-agent/src/main/java/");
                 assertThat(row.targetKind()).isEqualTo("source");
                 assertThat(row.targetProject()).isEqualTo(":agrona");
-                assertThat(row.target()).startsWith("agrona/src/main/java/");
+                assertThat(row.targetPath()).startsWith("agrona/src/main/java/");
             })
             .anySatisfy(row -> {
                 assertThat(row.sourceProject()).isEqualTo(":agrona-agent");
                 assertThat(row.targetKind()).isEqualTo("binary");
                 assertThat(row.targetProject()).isEqualTo("net.bytebuddy:byte-buddy:1.18.8");
-                assertThat(row.target()).isEqualTo("net.bytebuddy.agent.builder.AgentBuilder");
+                assertThat(row.targetPath()).isEmpty();
+                assertThat(row.targetType()).isEqualTo("net.bytebuddy.agent.builder.AgentBuilder");
             });
     }
 
@@ -72,7 +73,8 @@ class RealWorldPluginTest {
                 assertThat(row.sourceProject()).isEqualTo(":aeron-client");
                 assertThat(row.targetKind()).isEqualTo("binary");
                 assertThat(row.targetProject()).startsWith("org.agrona:agrona:");
-                assertThat(row.target()).startsWith("org.agrona.");
+                assertThat(row.targetPath()).isEmpty();
+                assertThat(row.targetType()).startsWith("org.agrona.");
             });
 
         Path aeronArchiveCsv = aeron.resolve("aeron-archive/build/reference-index/main-references.csv");
@@ -82,7 +84,7 @@ class RealWorldPluginTest {
                 assertThat(row.sourceProject()).isEqualTo(":aeron-archive");
                 assertThat(row.targetKind()).isEqualTo("source");
                 assertThat(row.targetProject()).isEqualTo(":aeron-client");
-                assertThat(row.target()).startsWith("aeron-client/src/main/java/");
+                assertThat(row.targetPath()).startsWith("aeron-client/src/main/java/");
             });
     }
 
@@ -146,7 +148,7 @@ class RealWorldPluginTest {
         assertThat(lines)
             .isNotEmpty()
             .first()
-            .isEqualTo("source_project,source_path,target_kind,target_project,target,target_type");
+            .isEqualTo("source_project,source_path,target_kind,target_project,target_path,target_type");
         assertThat(lines).hasSizeGreaterThan(1);
 
         List<CsvRow> rows = lines.stream()
@@ -161,11 +163,11 @@ class RealWorldPluginTest {
                 assertThat(projectRoot.resolve(row.sourcePath())).isRegularFile();
                 if ("source".equals(row.targetKind())) {
                     assertThat(row.targetProject()).isNotBlank();
-                    assertThat(projectRoot.resolve(row.target())).isRegularFile();
+                    assertThat(projectRoot.resolve(row.targetPath())).isRegularFile();
                     assertThat(row.targetType()).isNotBlank();
                 } else if ("binary".equals(row.targetKind())) {
                     assertThat(row.targetProject()).isNotBlank();
-                    assertThat(row.target()).isNotBlank();
+                    assertThat(row.targetPath()).isEmpty();
                     assertThat(row.targetType()).isNotBlank();
                 }
             });
@@ -214,7 +216,7 @@ class RealWorldPluginTest {
         String sourcePath,
         String targetKind,
         String targetProject,
-        String target,
+        String targetPath,
         String targetType
     ) {}
 }

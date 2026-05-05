@@ -26,7 +26,7 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
                 ":,src/main/java/example/App.java,source,:,src/main/java/example/Helper.java,example.Helper"
             );
     }
@@ -40,7 +40,7 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType"
             );
     }
@@ -57,7 +57,7 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.task(":unused:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType"
             );
         assertThat(projectDir.resolve("lib/build/reference-index/main-references.csv")).isRegularFile();
@@ -73,8 +73,8 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
-                ":,src/main/java/example/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList,org.agrona.collections.IntArrayList"
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                ":,src/main/java/example/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList"
             );
     }
 
@@ -87,7 +87,7 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir, "test"))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
                 ":,src/test/java/example/MainTypeUsage.java,source,:,src/main/java/example/MainType.java,example.MainType"
             );
     }
@@ -102,7 +102,7 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir, "test"))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
                 ":,src/test/java/example/GeneratedTypeUsage.java,source,:,build/generated-src/example/generated/GeneratedType.java,example.generated.GeneratedType"
             );
     }
@@ -134,7 +134,7 @@ class JavaReferenceIndexPluginTest {
         assertThat(secondResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
         assertThat(referencesCsv(secondProject))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
                 ":,src/main/java/example/App.java,source,:,src/main/java/example/Helper.java,example.Helper"
             );
     }
@@ -159,7 +159,7 @@ class JavaReferenceIndexPluginTest {
         Files.writeString(
             existingCsv,
             """
-            source_project,source_path,target_kind,target_project,target,target_type
+            source_project,source_path,target_kind,target_project,target_path,target_type
             :empty,empty/src/main/java/example/App.java,source,:empty,empty/src/main/java/example/Helper.java,example.Helper
             """
         );
@@ -184,13 +184,13 @@ class JavaReferenceIndexPluginTest {
         var result = gradle(
             "javaReferenceQuery",
             "--sql",
-            "select source_path, target_kind, target from java_references order by source_path, target"
+            "select source_path, target_kind, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
-            .contains("source_path,target_kind,target")
+            .contains("source_path,target_kind,target_path")
             .contains("src/main/java/example/App.java,source,src/main/java/example/Helper.java");
     }
 
@@ -202,12 +202,12 @@ class JavaReferenceIndexPluginTest {
             "-q",
             "javaReferenceQuery",
             "--sql",
-            "select source_path, target_kind, target from java_references order by source_path, target"
+            "select source_path, target_kind, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput()).isEqualTo("""
-            source_path,target_kind,target
+            source_path,target_kind,target_path
             src/main/java/example/App.java,source,src/main/java/example/Helper.java
             """);
     }
@@ -219,14 +219,14 @@ class JavaReferenceIndexPluginTest {
         var result = gradle(
             ":javaReferenceQuery",
             "--sql",
-            "select source_project, target_project, target from java_references where target_kind = 'source' order by target"
+            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
-            .contains("source_project,target_project,target")
+            .contains("source_project,target_project,target_path")
             .contains(":app,:lib,lib/src/main/java/lib/LibraryType.java");
     }
 
@@ -237,7 +237,7 @@ class JavaReferenceIndexPluginTest {
         var result = gradle(
             ":javaReferenceQuery",
             "--sql",
-            "select source_project, source_path, target_kind, target from java_references order by source_path, target"
+            "select source_project, source_path, target_kind, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -245,7 +245,7 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
-            .contains("source_project,source_path,target_kind,target")
+            .contains("source_project,source_path,target_kind,target_path")
             .contains(":app,app/src/main/java/app/App.java,source,app/src/main/java/app/Helper.java");
         assertThat(projectDir.resolve("empty/build/reference-index/main-references.csv")).doesNotExist();
     }
@@ -277,18 +277,18 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.getOutput())
             .contains("Query Java reference edges with DuckDB SQL.")
             .contains("Table: java_references")
-            .contains("Schema: source_project, source_path, target_kind, target_project, target, target_type")
+            .contains("Schema: source_project, source_path, target_kind, target_project, target_path, target_type")
             .contains("Columns: source_project/source_path identify the referencing file; target_kind is source, binary, or empty;")
             .contains("target_project is the target Gradle project path or library coordinate;")
-            .contains("target is the referenced source path or binary type")
+            .contains("target_path is the referenced source path for source references and empty for binary references")
             .contains("target_type is the referenced Java type name")
             .contains("Source row: :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType")
-            .contains("Binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.DirectBuffer,org.agrona.DirectBuffer")
+            .contains("Binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.DirectBuffer")
             .contains("Use -q for clean query output without Gradle task noise.")
             .contains("Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql \"select * from java_references limit 20\"")
             .contains("Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.")
-            .contains("What this file references: ./gradlew -q :javaReferenceQuery --sql \"select target_project, target, target_type from java_references where source_path = 'app/src/main/java/app/App.java'\"")
-            .contains("Who references this file: ./gradlew -q :javaReferenceQuery --sql \"select source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'\"")
+            .contains("What this file references: ./gradlew -q :javaReferenceQuery --sql \"select target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'\"")
+            .contains("Who references this file: ./gradlew -q :javaReferenceQuery --sql \"select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'\"")
             .contains("Options")
             .contains("--sql")
             .contains("SQL query to run against the java_references table.");

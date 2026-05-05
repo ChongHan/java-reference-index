@@ -35,19 +35,19 @@ Ask Gradle for the live schema and examples:
 What does this file reference?
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select target_kind, target_project, target, target_type from java_references where source_path = 'app/src/main/java/app/App.java'"
+./gradlew -q :javaReferenceQuery --sql "select target_kind, target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'"
 ```
 
 Who references this source file?
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select distinct source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'"
+./gradlew -q :javaReferenceQuery --sql "select distinct source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'"
 ```
 
 Which external types does a project use?
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select distinct target_project, target from java_references where source_project = ':app' and target_kind = 'binary'"
+./gradlew -q :javaReferenceQuery --sql "select distinct target_project, target_type from java_references where source_project = ':app' and target_kind = 'binary'"
 ```
 
 ## Table Shape
@@ -60,15 +60,15 @@ Which external types does a project use?
 | `source_path` | Java source path relative to the root project |
 | `target_kind` | `source`, `binary`, or empty when unresolved |
 | `target_project` | Target Gradle project path, or dependency coordinates for binaries |
-| `target` | Referenced source path, binary type name, or empty when unresolved |
+| `target_path` | Referenced source path for source references, or empty for binary/unresolved references |
 | `target_type` | Referenced Java type name; distinguishes multiple source types declared in the same target file |
 
 Example rows:
 
 ```csv
-source_project,source_path,target_kind,target_project,target,target_type
+source_project,source_path,target_kind,target_project,target_path,target_type
 :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType
-:app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList,org.agrona.collections.IntArrayList
+:app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList
 ```
 
 ## How It Works

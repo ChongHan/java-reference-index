@@ -37,7 +37,7 @@ Columns:
 - `source_path`: Java source path relative to the root project
 - `target_kind`: `source`, `binary`, or empty when unresolved
 - `target_project`: target Gradle project path, dependency coordinates, or compiled classpath entry
-- `target`: referenced source path, binary type name, or empty when unresolved
+- `target_path`: referenced source path for source references, or empty for binary/unresolved references
 - `target_type`: referenced Java type name; distinguishes multiple source types declared in the same target file
 
 ## Recipes
@@ -46,10 +46,10 @@ Columns:
 
 ```bash
 ./gradlew -q :javaReferenceQuery --sql "
-select distinct target_kind, target_project, target, target_type
+select distinct target_kind, target_project, target_path, target_type
 from java_references
 where source_path = 'path/to/File.java'
-order by target_kind, target_project, target, target_type
+order by target_kind, target_project, target_path, target_type
 "
 ```
 
@@ -60,7 +60,7 @@ order by target_kind, target_project, target, target_type
 select distinct source_project, source_path
 from java_references
 where target_kind = 'source'
-  and target = 'path/to/Target.java'
+  and target_path = 'path/to/Target.java'
 order by source_project, source_path
 "
 ```
@@ -69,11 +69,11 @@ order by source_project, source_path
 
 ```bash
 ./gradlew -q :javaReferenceQuery --sql "
-select distinct target_project, target
+select distinct target_project, target_type
 from java_references
 where source_project = ':project-name'
   and target_kind = 'binary'
-order by target_project, target
+order by target_project, target_type
 "
 ```
 
@@ -81,11 +81,11 @@ order by target_project, target
 
 ```bash
 ./gradlew -q :javaReferenceQuery --sql "
-select distinct source_project, source_path, target_project, target
+select distinct source_project, source_path, target_project, target_type
 from java_references
 where target_kind = 'binary'
-  and (target_project like 'group:artifact:%' or target = 'fully.qualified.TypeName')
-order by source_project, source_path, target_project, target
+  and (target_project like 'group:artifact:%' or target_type = 'fully.qualified.TypeName')
+order by source_project, source_path, target_project, target_type
 "
 ```
 
@@ -93,7 +93,7 @@ order by source_project, source_path, target_project, target
 
 Before editing or reviewing a Java file when impact matters:
 
-1. Query direct reverse references with `target = '<changed source path>'`.
+1. Query direct reverse references with `target_path = '<changed source path>'`.
 2. Query forward references with `source_path = '<changed source path>'` if dependency context matters.
 3. Read only the changed file and the candidate dependent files returned by the index.
 4. Use `rg` only after the index narrows the search space, or when the question is not about Java references.

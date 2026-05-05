@@ -54,9 +54,9 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
                 ":apps:service-a,apps/service-a/src/main/java/app/App.java,source,:libs:shared,libs/shared/src/main/java/shared/LibraryType.java,shared.LibraryType",
-                ":apps:service-a,apps/service-a/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList,org.agrona.collections.IntArrayList",
+                ":apps:service-a,apps/service-a/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList",
                 ":apps:service-a,apps/service-a/src/main/java/app/App.java,,,,"
             );
     }
@@ -77,7 +77,7 @@ class StandardReferenceIndexCsvWriterTest {
         writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
 
         assertThat(Files.readAllLines(outputFile))
-            .containsExactly("source_project,source_path,target_kind,target_project,target,target_type");
+            .containsExactly("source_project,source_path,target_kind,target_project,target_path,target_type");
     }
 
     @Test
@@ -115,10 +115,10 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType.Nested",
-                ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.collections.IntArrayList,org.agrona.collections.IntArrayList",
+                ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList",
                 ":app,app/src/main/java/app/App.java,,,,"
             );
     }
@@ -149,8 +149,8 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target,target_type",
-                ":app,app/src/main/java/app/App.java,binary,\"example:quoted,\"\"dependency\"\":1.0\",example.Binary,example.Binary"
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                ":app,app/src/main/java/app/App.java,binary,\"example:quoted,\"\"dependency\"\":1.0\",,example.Binary"
             );
     }
 

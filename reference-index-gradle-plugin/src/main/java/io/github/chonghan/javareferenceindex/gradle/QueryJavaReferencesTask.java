@@ -20,20 +20,20 @@ import org.gradle.work.DisableCachingByDefault;
 @DisableCachingByDefault(because = "The task executes interactive SQL and logs query results instead of producing cached outputs.")
 public abstract class QueryJavaReferencesTask extends DefaultTask {
     static final String TABLE_NAME = "java_references";
-    static final String SCHEMA = "source_project, source_path, target_kind, target_project, target, target_type";
+    static final String SCHEMA = "source_project, source_path, target_kind, target_project, target_path, target_type";
     static final String COLUMN_MEANING =
         "source_project/source_path identify the referencing file; target_kind is source, binary, or empty; "
             + "target_project is the target Gradle project path or library coordinate; "
-            + "target is the referenced source path or binary type; "
+            + "target_path is the referenced source path for source references and empty for binary references; "
             + "target_type is the referenced Java type name";
     static final String SOURCE_EXAMPLE_ROW =
         ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType";
     static final String BINARY_EXAMPLE_ROW =
-        ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,org.agrona.DirectBuffer,org.agrona.DirectBuffer";
+        ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.DirectBuffer";
     static final String REFERENCES_QUERY =
-        "select target_project, target, target_type from java_references where source_path = 'app/src/main/java/app/App.java'";
+        "select target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'";
     static final String BLAST_RADIUS_QUERY =
-        "select source_project, source_path from java_references where target = 'lib/src/main/java/lib/LibraryType.java'";
+        "select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'";
 
     private String sql;
 
@@ -97,7 +97,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
                         source_path VARCHAR,
                         target_kind VARCHAR,
                         target_project VARCHAR,
-                        target VARCHAR,
+                        target_path VARCHAR,
                         target_type VARCHAR
                     )
                     """);

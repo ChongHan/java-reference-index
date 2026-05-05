@@ -59,7 +59,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             task.setProjectPath(project.getPath());
             task.getOutputDirectory().set(project.getLayout().getBuildDirectory().dir("reference-index"));
             task.setGroup("verification");
-            task.setDescription("Build Java reference edge CSVs.");
+            task.setDescription("Build Java reference edge CSVs. Run with --info to log per-source-set timing.");
         });
     }
 

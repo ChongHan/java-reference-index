@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
@@ -102,6 +103,9 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
     }
 
     private void indexSourceSet(SourceSetSpec sourceSet) {
+        long totalStart = System.nanoTime();
+        long prepareStart = totalStart;
+
         List<Path> sourceFiles = sourceSet.sourceFiles().stream().map(Path::of).toList();
 
         ProjectCoordinates projectCoordinates = new ProjectCoordinates(sourceSet.projectPath());
@@ -126,9 +130,28 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             classpathEntries,
             JavaCompilerSettings.java21()
         );
+        long prepareNanos = elapsedSince(prepareStart);
 
+        long indexStart = System.nanoTime();
         var index = JavaReferenceIndexers.jdt().index(request);
+        long indexNanos = elapsedSince(indexStart);
+
+        long csvStart = System.nanoTime();
         writeCsv(sourceSet, index);
+        long csvNanos = elapsedSince(csvStart);
+
+        if (getLogger().isInfoEnabled()) {
+            logProfile(
+                sourceSet,
+                index,
+                sourceRoots.size(),
+                classpathEntries.size(),
+                prepareNanos,
+                indexNanos,
+                csvNanos,
+                elapsedSince(totalStart)
+            );
+        }
     }
 
     private void writeCsv(SourceSetSpec sourceSet, ProjectIndex index) {
@@ -148,6 +171,61 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         return getOutputDirectory().get().getAsFile().toPath()
             .resolve(sourceSetName + "-references.csv");
     }
+
+    private void logProfile(
+        SourceSetSpec sourceSet,
+        ProjectIndex index,
+        int sourceRootCount,
+        int classpathEntryCount,
+        long prepareNanos,
+        long indexNanos,
+        long csvNanos,
+        long totalNanos
+    ) {
+        ReferenceCounts counts = referenceCounts(index);
+        getLogger().info(
+            "[java-reference-index] %s %s files=%d sourceRoots=%d classpathEntries=%d prepare=%s index=%s csv=%s total=%s sourceRefs=%d binaryRefs=%d unresolvedRefs=%d".formatted(
+                sourceSet.projectPath(),
+                sourceSet.sourceSetName(),
+                sourceSet.sourceFiles().size(),
+                sourceRootCount,
+                classpathEntryCount,
+                duration(prepareNanos),
+                duration(indexNanos),
+                duration(csvNanos),
+                duration(totalNanos),
+                counts.sourceReferences(),
+                counts.binaryReferences(),
+                counts.unresolvedReferences()
+            )
+        );
+    }
+
+    private static ReferenceCounts referenceCounts(ProjectIndex index) {
+        int sourceReferences = 0;
+        int binaryReferences = 0;
+        int unresolvedReferences = 0;
+        for (var file : index.files()) {
+            sourceReferences += file.sourceReferences().size();
+            binaryReferences += file.binaryReferences().size();
+            unresolvedReferences += file.unresolvedReferences().size();
+        }
+        return new ReferenceCounts(sourceReferences, binaryReferences, unresolvedReferences);
+    }
+
+    private static long elapsedSince(long startNanos) {
+        return System.nanoTime() - startNanos;
+    }
+
+    private static String duration(long nanos) {
+        double millis = nanos / 1_000_000.0d;
+        if (millis < 1_000.0d) {
+            return String.format(Locale.ROOT, "%.1fms", millis);
+        }
+        return String.format(Locale.ROOT, "%.3fs", millis / 1_000.0d);
+    }
+
+    private record ReferenceCounts(int sourceReferences, int binaryReferences, int unresolvedReferences) {}
 
     public record SourceSetSpec(
         String projectPath,

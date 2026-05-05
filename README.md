@@ -102,6 +102,12 @@ Run the build:
 ./gradlew build
 ```
 
+Show per-source-set indexing timings:
+
+```bash
+./gradlew :javaReferenceIndex --info
+```
+
 Maintainer release steps are documented in [docs/releasing.md](docs/releasing.md).
 
 ## License

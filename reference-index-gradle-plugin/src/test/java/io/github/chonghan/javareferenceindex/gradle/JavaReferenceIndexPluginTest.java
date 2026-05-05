@@ -108,6 +108,26 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void javaReferenceIndex_withInfoLogging_printsPerSourceSetTiming() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradle("--info", "javaReferenceIndex");
+
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("[java-reference-index] : main")
+            .contains("files=2")
+            .contains("sourceRoots=1")
+            .contains("prepare=")
+            .contains("index=")
+            .contains("csv=")
+            .contains("total=")
+            .contains("sourceRefs=1")
+            .contains("binaryRefs=0")
+            .contains("unresolvedRefs=0");
+    }
+
+    @Test
     void javaReferenceIndex_isRelocatableWithBuildCache() throws IOException {
         Path firstProject = projectDir.resolve("first");
         Path secondProject = projectDir.resolve("second");
@@ -302,7 +322,8 @@ class JavaReferenceIndexPluginTest {
 
         assertThat(result.task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
-            .contains("Build Java reference edge CSVs.");
+            .contains("Build Java reference edge CSVs.")
+            .contains("Run with --info to log per-source-set timing.");
     }
 
     private org.gradle.testkit.runner.BuildResult gradle(String... arguments) {

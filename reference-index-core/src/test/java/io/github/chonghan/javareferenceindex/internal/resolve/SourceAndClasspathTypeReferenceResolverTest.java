@@ -1,0 +1,113 @@
+package io.github.chonghan.javareferenceindex.internal.resolve;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.github.chonghan.javareferenceindex.model.JavaCompilerSettings;
+import io.github.chonghan.javareferenceindex.model.ProjectCoordinates;
+import io.github.chonghan.javareferenceindex.model.ProjectIndexingRequest;
+import io.github.chonghan.javareferenceindex.model.SourceRoot;
+import io.github.chonghan.javareferenceindex.model.SourceSetCoordinates;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class SourceAndClasspathTypeReferenceResolverTest {
+    private final SourceAndClasspathTypeReferenceResolver resolver = new SourceAndClasspathTypeReferenceResolver();
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void resolveSource_withNestedType_returnsEnclosingSourceFile() throws IOException {
+        ProjectCoordinates app = new ProjectCoordinates(":app");
+        ProjectCoordinates lib = new ProjectCoordinates(":lib");
+        SourceSetCoordinates main = new SourceSetCoordinates("main");
+        Path appFile = tempDir.resolve("app/src/main/java/app/App.java");
+        Path libRoot = tempDir.resolve("lib/src/main/java");
+        Path outerFile = libRoot.resolve("example/Outer.java");
+        createFile(appFile);
+        createFile(outerFile);
+
+        var reference = resolver.resolveSource(
+            "example.Outer.Inner",
+            appFile,
+            request(app, main, List.of(new SourceRoot(libRoot, lib, main)), List.of(appFile))
+        );
+
+        assertThat(reference).hasValueSatisfying(sourceReference -> {
+            assertThat(sourceReference.qualifiedName()).isEqualTo("example.Outer.Inner");
+            assertThat(sourceReference.sourceFile()).isEqualTo(outerFile.toAbsolutePath().normalize());
+            assertThat(sourceReference.targetProject()).isEqualTo(lib);
+            assertThat(sourceReference.targetSourceSet()).isEqualTo(main);
+        });
+    }
+
+    @Test
+    void resolveSource_withDuplicateTopLevelTypes_keepsSourceRootOrder() throws IOException {
+        ProjectCoordinates app = new ProjectCoordinates(":app");
+        SourceSetCoordinates main = new SourceSetCoordinates("main");
+        Path appFile = tempDir.resolve("app/src/main/java/app/App.java");
+        Path firstRoot = tempDir.resolve("first/src/main/java");
+        Path secondRoot = tempDir.resolve("second/src/main/java");
+        Path firstDuplicate = firstRoot.resolve("example/Duplicate.java");
+        Path secondDuplicate = secondRoot.resolve("example/Duplicate.java");
+        createFile(appFile);
+        createFile(firstDuplicate);
+        createFile(secondDuplicate);
+
+        var reference = resolver.resolveSource(
+            "example.Duplicate",
+            appFile,
+            request(app, main, List.of(
+                new SourceRoot(firstRoot, new ProjectCoordinates(":first"), main),
+                new SourceRoot(secondRoot, new ProjectCoordinates(":second"), main)
+            ), List.of(appFile))
+        );
+
+        assertThat(reference).hasValueSatisfying(sourceReference -> {
+            assertThat(sourceReference.sourceFile()).isEqualTo(firstDuplicate.toAbsolutePath().normalize());
+            assertThat(sourceReference.targetProject()).isEqualTo(new ProjectCoordinates(":first"));
+        });
+    }
+
+    @Test
+    void resolveSource_withSameSourceFile_ignoresSelfReference() throws IOException {
+        ProjectCoordinates project = new ProjectCoordinates(":app");
+        SourceSetCoordinates main = new SourceSetCoordinates("main");
+        Path sourceRoot = tempDir.resolve("app/src/main/java");
+        Path sourceFile = sourceRoot.resolve("example/Self.java");
+        createFile(sourceFile);
+
+        var reference = resolver.resolveSource(
+            "example.Self",
+            sourceFile,
+            request(project, main, List.of(new SourceRoot(sourceRoot, project, main)), List.of(sourceFile))
+        );
+
+        assertThat(reference).isEmpty();
+    }
+
+    private static ProjectIndexingRequest request(
+        ProjectCoordinates project,
+        SourceSetCoordinates sourceSet,
+        List<SourceRoot> sourceRoots,
+        List<Path> sourceFiles
+    ) {
+        return new ProjectIndexingRequest(
+            project,
+            sourceSet,
+            sourceRoots,
+            sourceFiles,
+            List.of(),
+            JavaCompilerSettings.java21()
+        );
+    }
+
+    private static void createFile(Path file) throws IOException {
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "");
+    }
+}

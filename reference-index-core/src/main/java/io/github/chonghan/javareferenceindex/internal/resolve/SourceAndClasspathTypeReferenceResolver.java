@@ -14,12 +14,13 @@ import java.util.Optional;
 import java.util.jar.JarFile;
 
 public final class SourceAndClasspathTypeReferenceResolver implements TypeReferenceResolver {
+    private final Map<ProjectIndexingRequest, SourceLookup> sourceLookups = new IdentityHashMap<>();
     private final Map<ProjectIndexingRequest, BinaryLookup> binaryLookups = new IdentityHashMap<>();
 
     @Override
     public Optional<SourceReference> resolveSource(String qualifiedName, Path sourceFile, ProjectIndexingRequest request) {
         Path normalizedSourceFile = sourceFile.toAbsolutePath().normalize();
-        return sourcePathFor(qualifiedName, request)
+        return sourceLookupFor(request).sourcePathFor(qualifiedName)
             .filter(source -> !source.path().equals(normalizedSourceFile))
             .map(source -> new SourceReference(
                 qualifiedName,
@@ -35,32 +36,62 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
             .map(classpathEntry -> new BinaryReference(qualifiedName, classpathEntry.target(), qualifiedName));
     }
 
+    private SourceLookup sourceLookupFor(ProjectIndexingRequest request) {
+        synchronized (sourceLookups) {
+            return sourceLookups.computeIfAbsent(request, SourceLookup::new);
+        }
+    }
+
     private BinaryLookup binaryLookupFor(ProjectIndexingRequest request) {
         synchronized (binaryLookups) {
             return binaryLookups.computeIfAbsent(request, BinaryLookup::new);
         }
     }
 
-    private static Optional<ResolvedSource> sourcePathFor(String qualifiedName, ProjectIndexingRequest request) {
-        for (var sourceRoot : request.sourceRoots()) {
-            Optional<Path> sourcePath = sourcePathFor(qualifiedName, sourceRoot);
-            if (sourcePath.isPresent()) {
-                return sourcePath.map(path -> new ResolvedSource(path, sourceRoot));
-            }
-        }
-        return Optional.empty();
-    }
+    private static final class SourceLookup {
+        private final Map<String, ResolvedSource> sourcesByTopLevelType = new java.util.HashMap<>();
 
-    private static Optional<Path> sourcePathFor(String qualifiedName, SourceRoot sourceRoot) {
-        String candidateName = qualifiedName;
-        while (candidateName.contains(".")) {
-            Path candidate = sourceRoot.path().resolve(candidateName.replace('.', '/') + ".java").toAbsolutePath().normalize();
-            if (Files.isRegularFile(candidate)) {
-                return Optional.of(candidate);
-            }
-            candidateName = candidateName.substring(0, candidateName.lastIndexOf('.'));
+        private SourceLookup(ProjectIndexingRequest request) {
+            request.sourceRoots().forEach(this::index);
         }
-        return Optional.empty();
+
+        private Optional<ResolvedSource> sourcePathFor(String qualifiedName) {
+            String candidateName = qualifiedName;
+            while (candidateName.contains(".")) {
+                ResolvedSource source = sourcesByTopLevelType.get(candidateName);
+                if (source != null) {
+                    return Optional.of(source);
+                }
+                candidateName = candidateName.substring(0, candidateName.lastIndexOf('.'));
+            }
+            return Optional.empty();
+        }
+
+        private void index(SourceRoot sourceRoot) {
+            Path root = sourceRoot.path().toAbsolutePath().normalize();
+            if (!Files.isDirectory(root)) {
+                return;
+            }
+            try (var paths = Files.walk(root)) {
+                paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".java"))
+                    .forEach(path -> sourcesByTopLevelType.putIfAbsent(
+                        qualifiedName(root, path),
+                        new ResolvedSource(path.toAbsolutePath().normalize(), sourceRoot)
+                    ));
+            } catch (IOException ignored) {
+                // Ignore unreadable source roots in the same way the previous lookup missed them.
+            }
+        }
+
+        private static String qualifiedName(Path root, Path sourceFile) {
+            return root.relativize(sourceFile.toAbsolutePath().normalize())
+                .toString()
+                .replace('\\', '/')
+                .replace('/', '.')
+                .replaceFirst("\\.java$", "");
+        }
     }
 
     private static final class BinaryLookup {

@@ -31,6 +31,7 @@ class RealWorldPluginTest {
         Path agrona = realWorldProject("agrona");
         var result = javaReferenceIndex(agrona, true);
 
+        assertThat(result.task(":javaReferenceIndexAll").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
         assertThat(result.task(":agrona:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
         assertThat(result.task(":agrona-agent:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
@@ -61,6 +62,7 @@ class RealWorldPluginTest {
         Path aeron = realWorldProject("aeron");
         var result = javaReferenceIndex(aeron, false);
 
+        assertThat(result.task(":javaReferenceIndexAll").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
         assertThat(result.task(":aeron-client:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
         assertThat(result.task(":aeron-driver:javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
@@ -125,11 +127,12 @@ class RealWorldPluginTest {
 
         List<String> arguments = new ArrayList<>(List.of(
                 "--init-script", initScript.toString(),
+                "--configure-on-demand",
                 "--no-parallel",
                 "--rerun-tasks",
                 "--quiet",
                 "--stacktrace",
-                ":javaReferenceIndex"
+                ":javaReferenceIndexAll"
         ));
         if (configurationCache) {
             arguments.add(3, "--configuration-cache");

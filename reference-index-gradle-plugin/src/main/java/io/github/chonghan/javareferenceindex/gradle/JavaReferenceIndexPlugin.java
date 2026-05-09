@@ -58,13 +58,20 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             return;
         }
         if (rootProject.getState().getExecuted()) {
+            evaluationDependsOnAllDescendants(rootProject);
             configureRootAggregateTasksAfterChildrenEvaluated(rootProject, indexAllTaskProvider);
         } else {
             rootProject.afterEvaluate(evaluatedRoot -> {
-                evaluatedRoot.evaluationDependsOnChildren();
+                evaluationDependsOnAllDescendants(evaluatedRoot);
                 configureRootAggregateTasksAfterChildrenEvaluated(evaluatedRoot, indexAllTaskProvider);
             });
         }
+    }
+
+    private static void evaluationDependsOnAllDescendants(Project rootProject) {
+        rootProject.getAllprojects().stream()
+            .filter(project -> !project.getChildProjects().isEmpty())
+            .forEach(Project::evaluationDependsOnChildren);
     }
 
     private static void configureRootAggregateTasksAfterChildrenEvaluated(

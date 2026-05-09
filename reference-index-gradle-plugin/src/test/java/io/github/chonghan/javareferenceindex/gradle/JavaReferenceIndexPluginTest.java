@@ -251,6 +251,35 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void javaReferenceQuery_fromRootProjectWithConfigureOnDemand_indexesSubprojectsOnDemand() throws IOException {
+        copyFixture("multi-project");
+        Files.writeString(
+            projectDir.resolve("gradle.properties"),
+            Files.readString(projectDir.resolve("gradle.properties")) + "org.gradle.configureondemand=true\n"
+        );
+
+        var result = gradle(
+            ":javaReferenceQuery",
+            "--sql",
+            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
+        );
+
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":lib:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("source_project,target_project,target_path")
+            .contains(":app,:lib,lib/src/main/java/lib/LibraryType.java");
+        assertThat(projectDir.resolve("app/build/reference-index/main-references.csv")).isRegularFile();
+        assertThat(projectDir.resolve("lib/build/reference-index/main-references.csv")).isRegularFile();
+        assertThat(referencesCsv(projectDir.resolve("app")))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType"
+            );
+    }
+
+    @Test
     void javaReferenceQuery_withSubprojectWithoutJavaSources_queriesAvailableCsvFiles() throws IOException {
         copyFixture("subproject-without-java-sources");
 

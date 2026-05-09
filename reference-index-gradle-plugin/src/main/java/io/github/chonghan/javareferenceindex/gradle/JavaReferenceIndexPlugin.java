@@ -33,7 +33,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         });
         if (!project.equals(project.getRootProject())) {
             var rootIndexTaskProvider = indexTask(project.getRootProject());
-            rootIndexTaskProvider.configure(task -> task.dependsOn(taskProvider));
+            rootIndexTaskProvider.configure(task -> task.dependsOn(project.getPath() + ":" + INDEX_TASK_NAME));
             queryTask(project.getRootProject()).configure(task -> {
                 task.dependsOn(rootIndexTaskProvider);
                 addReferenceIndexFiles(task, project, taskProvider);

@@ -31,14 +31,6 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             task.dependsOn(taskProvider);
             addReferenceIndexFiles(task, project, taskProvider);
         });
-        if (!project.equals(project.getRootProject())) {
-            var rootIndexTaskProvider = indexTask(project.getRootProject());
-            rootIndexTaskProvider.configure(task -> task.dependsOn(project.getPath() + ":" + INDEX_TASK_NAME));
-            queryTask(project.getRootProject()).configure(task -> {
-                task.dependsOn(rootIndexTaskProvider);
-                addReferenceIndexFiles(task, project, taskProvider);
-            });
-        }
 
         project.getPlugins().withType(JavaPlugin.class, javaPlugin ->
             project.afterEvaluate(evaluatedProject ->
@@ -48,6 +40,31 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
                 })
             )
         );
+
+        if (!project.equals(project.getRootProject())) {
+            var rootIndexTaskProvider = indexTask(project.getRootProject());
+            rootIndexTaskProvider.configure(task -> task.dependsOn(taskProvider));
+            queryTask(project.getRootProject()).configure(task -> {
+                task.dependsOn(rootIndexTaskProvider);
+                addReferenceIndexFiles(task, project, taskProvider);
+            });
+            evaluateSubprojectForRootAggregateTask(project);
+        }
+    }
+
+    private static void evaluateSubprojectForRootAggregateTask(Project project) {
+        if (rootAggregateTaskRequested(project)) {
+            project.getRootProject().evaluationDependsOn(project.getPath());
+        }
+    }
+
+    private static boolean rootAggregateTaskRequested(Project project) {
+        return project.getGradle().getStartParameter().getTaskNames().stream()
+            .anyMatch(JavaReferenceIndexPlugin::isRootAggregateTask);
+    }
+
+    private static boolean isRootAggregateTask(String taskName) {
+        return taskName.equals(":" + INDEX_TASK_NAME) || taskName.equals(":" + QUERY_TASK_NAME);
     }
 
     private static TaskProvider<IndexJavaReferencesTask> indexTask(Project project) {

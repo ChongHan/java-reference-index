@@ -280,6 +280,25 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void javaReferenceQuery_fromRootProjectWithConfigureOnDemandAndIncludedBuildPlugin_indexesSubprojectsOnDemand()
+        throws IOException {
+        copyFixture("configure-on-demand-included-build-plugin");
+
+        var result = gradle(
+            ":javaReferenceQuery",
+            "--sql",
+            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
+        );
+
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":lib:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("source_project,target_project,target_path")
+            .contains(":app,:lib,lib/src/main/java/lib/LibraryType.java");
+    }
+
+    @Test
     void javaReferenceQuery_withSubprojectWithoutJavaSources_queriesAvailableCsvFiles() throws IOException {
         copyFixture("subproject-without-java-sources");
 

@@ -89,6 +89,84 @@ class JdtJavaReferenceIndexerTest {
     }
 
     @Test
+    void index_withDotInSourceRootDirectory_resolvesReferencedSourceFile() {
+        Path appSourceRoot = tempDir.resolve("workspace.with.dot/app/src/main/java");
+        Path libSourceRoot = tempDir.resolve("dependency.with.dot/lib/src/main/java");
+        Path sourceFile = appSourceRoot.resolve("app/UsesLibrary.java");
+        Path libraryFile = libSourceRoot.resolve("lib/LibraryType.java");
+        writeSource(
+            sourceFile,
+            """
+            package app;
+
+            import lib.LibraryType;
+
+            public class UsesLibrary {
+                private LibraryType libraryType;
+            }
+            """
+        );
+        writeSource(
+            libraryFile,
+            """
+            package lib;
+
+            public class LibraryType {
+            }
+            """
+        );
+        ProjectCoordinates app = new ProjectCoordinates(":app");
+        SourceSetCoordinates main = new SourceSetCoordinates("main");
+        ProjectCoordinates lib = new ProjectCoordinates(":lib");
+
+        ProjectIndex index = indexer.index(new ProjectIndexingRequest(
+            app,
+            main,
+            List.of(
+                new SourceRoot(appSourceRoot, app, main),
+                new SourceRoot(libSourceRoot, lib, main)
+            ),
+            List.of(sourceFile),
+            List.of(),
+            JavaCompilerSettings.java21()
+        ));
+
+        assertThat(singleFile(index).sourceReferences())
+            .containsExactly(new SourceReference("lib.LibraryType", libraryFile.toAbsolutePath().normalize(), lib, main));
+    }
+
+    @Test
+    void index_withDotInPackageDirectory_resolvesSameSourceRootReference() {
+        Path sourceRoot = tempDir.resolve("workspace.with.dot/app/src/main/java");
+        Path sourceFile = sourceRoot.resolve("example.with.dot/UsesHelper.java");
+        Path helperFile = sourceRoot.resolve("example.with.dot/Helper.java");
+        writeSource(
+            sourceFile,
+            """
+            package example.with.dot;
+
+            public class UsesHelper {
+                private Helper helper;
+            }
+            """
+        );
+        writeSource(
+            helperFile,
+            """
+            package example.with.dot;
+
+            public class Helper {
+            }
+            """
+        );
+
+        ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of()));
+
+        assertThat(singleFile(index).sourceReferences())
+            .containsExactly(sourceReference("example.with.dot.Helper", helperFile.toAbsolutePath().normalize()));
+    }
+
+    @Test
     void index_withSourceReferenceAlsoOnClasspath_recordsOnlySourceReference() {
         Path fixtureRoot = fixturePath("jdt-indexer-source-reference-also-on-classpath");
         Path mainSourceRoot = fixtureRoot.resolve("src/main/java");
@@ -256,6 +334,15 @@ class JdtJavaReferenceIndexerTest {
             throw new IllegalStateException(e);
         }
         return file;
+    }
+
+    private static void writeSource(Path sourceFile, String content) {
+        try {
+            java.nio.file.Files.createDirectories(sourceFile.getParent());
+            java.nio.file.Files.writeString(sourceFile, content);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static ProjectIndex captureStandardError(ByteArrayOutputStream standardError, java.util.function.Supplier<ProjectIndex> action) {

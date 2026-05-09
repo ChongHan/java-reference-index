@@ -32,6 +32,20 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
+    void javaReferenceIndex_withDotInSourceDirectory_writesSiblingSourceReferencePath() throws IOException {
+        copyFixture("dotted-package-directory");
+
+        var result = gradle("javaReferenceIndex");
+
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                ":,src/main/java/example.with.dot/UsesHelper.java,source,:,src/main/java/example.with.dot/Helper.java,example.with.dot.Helper"
+            );
+    }
+
+    @Test
     void javaReferenceIndex_withProjectDependency_writesDependentProjectSourceReference() throws IOException {
         copyFixture("multi-project");
 

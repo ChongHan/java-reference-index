@@ -49,15 +49,23 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
     @Override
     public FileReferenceSet scan(Path sourceFile, ProjectIndexingRequest request) {
         CompilationUnit compilationUnit = parser.parse(sourceFile, request);
-        ReferenceCollector collector = new ReferenceCollector(sourceFile, request, referenceResolver);
+        ReferenceCollector collector = new ReferenceCollector(sourceFile, request, referenceResolver, packageName(compilationUnit));
         compilationUnit.accept(collector);
         return collector.toReferenceSet();
+    }
+
+    private static String packageName(CompilationUnit compilationUnit) {
+        if (compilationUnit.getPackage() == null) {
+            return "";
+        }
+        return compilationUnit.getPackage().getName().getFullyQualifiedName();
     }
 
     private static final class ReferenceCollector extends ASTVisitor {
         private final Path sourceFile;
         private final ProjectIndexingRequest request;
         private final TypeReferenceResolver referenceResolver;
+        private final String packageName;
         private final Map<String, SourceReference> sourceReferences = new LinkedHashMap<>();
         private final Map<String, BinaryReference> binaryReferences = new LinkedHashMap<>();
         private final Map<String, UnresolvedReference> unresolvedReferences = new LinkedHashMap<>();
@@ -65,11 +73,13 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         private ReferenceCollector(
             Path sourceFile,
             ProjectIndexingRequest request,
-            TypeReferenceResolver referenceResolver
+            TypeReferenceResolver referenceResolver,
+            String packageName
         ) {
             this.sourceFile = sourceFile.toAbsolutePath().normalize();
             this.request = request;
             this.referenceResolver = referenceResolver;
+            this.packageName = packageName;
         }
 
         @Override
@@ -256,7 +266,17 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         }
 
         private void recordUnresolved(String name) {
+            if (recordRecoveredSourceReference(name)) {
+                return;
+            }
             unresolvedReferences.putIfAbsent(name, new UnresolvedReference(name));
+        }
+
+        private boolean recordRecoveredSourceReference(String name) {
+            if (name.contains(".") || packageName.isBlank()) {
+                return recordSourceReference(name);
+            }
+            return recordSourceReference(packageName + "." + name) || recordSourceReference(name);
         }
 
         private static boolean shouldIgnore(String qualifiedName) {

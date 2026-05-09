@@ -54,7 +54,12 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
 
     private static void evaluateSubprojectForRootAggregateTask(Project project) {
         if (rootAggregateTaskRequested(project)) {
-            project.getRootProject().evaluationDependsOn(project.getPath());
+            Project rootProject = project.getRootProject();
+            if (rootProject.getState().getExecuted()) {
+                rootProject.evaluationDependsOn(project.getPath());
+            } else {
+                rootProject.afterEvaluate(evaluatedRoot -> evaluatedRoot.evaluationDependsOn(project.getPath()));
+            }
         }
     }
 

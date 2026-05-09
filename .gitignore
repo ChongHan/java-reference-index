@@ -8,4 +8,10 @@ build/
 .idea/
 *.iml
 
+# Eclipse / Buildship
+**/.project
+**/.classpath
+**/.settings/
+**/bin/
+
 .DS_Store

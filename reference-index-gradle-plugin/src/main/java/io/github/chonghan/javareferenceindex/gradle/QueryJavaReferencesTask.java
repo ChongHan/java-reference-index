@@ -58,6 +58,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             Binary row: %s
             Use -q for clean query output without Gradle task noise.
             Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
+            Root query depends on :javaReferenceIndexAll, the root-only aggregate index task.
             Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.
             What this file references: ./gradlew -q :javaReferenceQuery --sql "%s"
             Who references this file: ./gradlew -q :javaReferenceQuery --sql "%s"

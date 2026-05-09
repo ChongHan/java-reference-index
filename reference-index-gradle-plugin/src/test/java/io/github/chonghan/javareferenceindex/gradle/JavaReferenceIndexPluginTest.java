@@ -46,11 +46,12 @@ class JavaReferenceIndexPluginTest {
     }
 
     @Test
-    void javaReferenceIndex_fromRootProject_indexesAllSubprojects() throws IOException {
+    void javaReferenceIndexAll_fromRootProject_indexesAllSubprojects() throws IOException {
         copyFixture("multi-project");
 
-        var result = gradle(":javaReferenceIndex");
+        var result = gradle("javaReferenceIndexAll");
 
+        assertThat(result.task(":javaReferenceIndexAll").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":lib:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -394,6 +395,7 @@ class JavaReferenceIndexPluginTest {
             .contains("Binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.DirectBuffer")
             .contains("Use -q for clean query output without Gradle task noise.")
             .contains("Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql \"select * from java_references limit 20\"")
+            .contains("Root query depends on :javaReferenceIndexAll, the root-only aggregate index task.")
             .contains("Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.")
             .contains("What this file references: ./gradlew -q :javaReferenceQuery --sql \"select target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'\"")
             .contains("Who references this file: ./gradlew -q :javaReferenceQuery --sql \"select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'\"")
@@ -412,6 +414,17 @@ class JavaReferenceIndexPluginTest {
         assertThat(result.getOutput())
             .contains("Build Java reference edge CSVs.")
             .contains("Run with --info to log per-source-set timing.");
+    }
+
+    @Test
+    void javaReferenceIndexAll_help_describesAggregateOutputCsv() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradle("help", "--task", "javaReferenceIndexAll");
+
+        assertThat(result.task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains("Build Java reference edge CSVs for all projects.");
     }
 
     private org.gradle.testkit.runner.BuildResult gradle(String... arguments) {

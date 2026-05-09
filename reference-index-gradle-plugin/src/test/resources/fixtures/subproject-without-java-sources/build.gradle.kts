@@ -1,6 +1,6 @@
 plugins {
     java
-    id("io.github.chonghan.java-reference-index") apply false
+    id("io.github.chonghan.java-reference-index")
 }
 
 subprojects {

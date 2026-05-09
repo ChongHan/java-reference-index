@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.Task;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
@@ -21,6 +22,7 @@ import org.gradle.api.tasks.TaskProvider;
 
 public class JavaReferenceIndexPlugin implements Plugin<Project> {
     static final String INDEX_TASK_NAME = "javaReferenceIndex";
+    static final String INDEX_ALL_TASK_NAME = "javaReferenceIndexAll";
     static final String QUERY_TASK_NAME = "javaReferenceQuery";
 
     @Override
@@ -42,25 +44,42 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         );
 
         if (!project.equals(project.getRootProject())) {
-            var rootIndexTaskProvider = indexTask(project.getRootProject());
-            rootIndexTaskProvider.configure(task -> task.dependsOn(taskProvider));
-            queryTask(project.getRootProject()).configure(task -> {
-                task.dependsOn(rootIndexTaskProvider);
-                addReferenceIndexFiles(task, project, taskProvider);
+            return;
+        }
+
+        var indexAllTaskProvider = indexAllTask(project);
+        indexAllTaskProvider.configure(task -> task.dependsOn(taskProvider));
+        queryTaskProvider.configure(task -> task.dependsOn(indexAllTaskProvider));
+        configureRootAggregateTasks(project, indexAllTaskProvider);
+    }
+
+    private static void configureRootAggregateTasks(Project rootProject, TaskProvider<?> indexAllTaskProvider) {
+        if (!rootAggregateTaskRequested(rootProject)) {
+            return;
+        }
+        if (rootProject.getState().getExecuted()) {
+            configureRootAggregateTasksAfterChildrenEvaluated(rootProject, indexAllTaskProvider);
+        } else {
+            rootProject.afterEvaluate(evaluatedRoot -> {
+                evaluatedRoot.evaluationDependsOnChildren();
+                configureRootAggregateTasksAfterChildrenEvaluated(evaluatedRoot, indexAllTaskProvider);
             });
-            evaluateSubprojectForRootAggregateTask(project);
         }
     }
 
-    private static void evaluateSubprojectForRootAggregateTask(Project project) {
-        if (rootAggregateTaskRequested(project)) {
-            Project rootProject = project.getRootProject();
-            if (rootProject.getState().getExecuted()) {
-                rootProject.evaluationDependsOn(project.getPath());
-            } else {
-                rootProject.afterEvaluate(evaluatedRoot -> evaluatedRoot.evaluationDependsOn(project.getPath()));
-            }
-        }
+    private static void configureRootAggregateTasksAfterChildrenEvaluated(
+        Project rootProject,
+        TaskProvider<?> indexAllTaskProvider
+    ) {
+        rootProject.getAllprojects().stream()
+            .filter(project -> !project.equals(rootProject))
+            .forEach(project ->
+                project.getPlugins().withType(JavaReferenceIndexPlugin.class, plugin -> {
+                    var indexTaskProvider = indexTask(project);
+                    indexAllTaskProvider.configure(task -> task.dependsOn(indexTaskProvider));
+                    queryTask(rootProject).configure(task -> addReferenceIndexFiles(task, project, indexTaskProvider));
+                })
+            );
     }
 
     private static boolean rootAggregateTaskRequested(Project project) {
@@ -69,7 +88,20 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
     }
 
     private static boolean isRootAggregateTask(String taskName) {
-        return taskName.equals(":" + INDEX_TASK_NAME) || taskName.equals(":" + QUERY_TASK_NAME);
+        return taskName.equals(INDEX_ALL_TASK_NAME)
+            || taskName.equals(":" + INDEX_ALL_TASK_NAME)
+            || taskName.equals(":" + QUERY_TASK_NAME);
+    }
+
+    private static TaskProvider<Task> indexAllTask(Project project) {
+        var tasks = project.getTasks();
+        if (tasks.getNames().contains(INDEX_ALL_TASK_NAME)) {
+            return tasks.named(INDEX_ALL_TASK_NAME);
+        }
+        return tasks.register(INDEX_ALL_TASK_NAME, task -> {
+            task.setGroup("verification");
+            task.setDescription("Build Java reference edge CSVs for all projects.");
+        });
     }
 
     private static TaskProvider<IndexJavaReferencesTask> indexTask(Project project) {

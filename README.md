@@ -14,14 +14,26 @@ Apply the plugin in the root `build.gradle.kts`:
 plugins {
     id("io.github.chonghan.java-reference-index") version "0.1.1"
 }
+
+subprojects {
+    apply(plugin = "io.github.chonghan.java-reference-index")
+}
 ```
 
-The plugin configures every subproject that applies the Gradle `java` plugin.
+Apply the plugin to the root project for repo-wide query tasks, and to each Java subproject that should produce an index.
+The root-only `javaReferenceIndexAll` task builds indexes for all indexed projects; per-project `javaReferenceIndex`
+tasks index only that project.
 
 Query from the root project:
 
 ```bash
 ./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
+```
+
+Build all project indexes without querying:
+
+```bash
+./gradlew javaReferenceIndexAll
 ```
 
 Ask Gradle for the live schema and examples:
@@ -77,7 +89,7 @@ source_project,source_path,target_kind,target_project,target_path,target_type
 2. Eclipse JDT parses each source file and resolves type bindings.
 3. The core indexer records source references when the target type exists as source in the build.
 4. Otherwise it records binary references to dependency coordinates or compiled classpath entries.
-5. CSV files are written under each subproject's `build/reference-index/`, then loaded into DuckDB by `javaReferenceQuery`.
+5. CSV files are written under each project's `build/reference-index/`, then loaded into DuckDB by `javaReferenceQuery`.
 
 Source references are preferred over binary references. If a type is available as source, the index points to the source file even if compiled classes for the same type are also on the classpath.
 

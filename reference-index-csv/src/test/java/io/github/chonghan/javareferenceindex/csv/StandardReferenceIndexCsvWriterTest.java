@@ -81,6 +81,31 @@ class StandardReferenceIndexCsvWriterTest {
     }
 
     @Test
+    void write_withSourceReferenceInSameFile_omitsReference() throws IOException {
+        ProjectCoordinates app = new ProjectCoordinates(":app");
+        SourceSetCoordinates main = new SourceSetCoordinates("main");
+        Path appDir = tempDir.resolve("app");
+        Path appFile = appDir.resolve("src/main/java/app/App.java");
+        createFile(appFile);
+        ProjectIndex index = new ProjectIndex(
+            app,
+            main,
+            List.of(new FileReferenceSet(
+                appFile,
+                List.of(new SourceReference("app.App.Inner", appFile, app, main)),
+                List.of(),
+                List.of()
+            ))
+        );
+        Path outputFile = tempDir.resolve("references.csv");
+
+        writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
+
+        assertThat(Files.readAllLines(outputFile))
+            .containsExactly("source_project,source_path,target_kind,target_project,target_path,target_type");
+    }
+
+    @Test
     void write_withDuplicateReferences_writesEachDistinctTargetTypeOnce() throws IOException {
         ProjectCoordinates app = new ProjectCoordinates(":app");
         ProjectCoordinates lib = new ProjectCoordinates(":lib");

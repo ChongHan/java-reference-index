@@ -33,6 +33,9 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
             String sourcePath = relativePath(file.sourceFile(), rootDirectory);
 
             for (var reference : file.sourceReferences()) {
+                if (sameFile(file.sourceFile(), reference.sourceFile())) {
+                    continue;
+                }
                 rows.add(new CsvReferenceRow(
                     sourceProject,
                     sourcePath,
@@ -83,6 +86,10 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
             );
         }
         return rootDirectory.relativize(normalizedFile).toString().replace('\\', '/');
+    }
+
+    private static boolean sameFile(Path first, Path second) {
+        return first.toAbsolutePath().normalize().equals(second.toAbsolutePath().normalize());
     }
 
     private static void writeRow(BufferedWriter writer, String... columns) throws IOException {

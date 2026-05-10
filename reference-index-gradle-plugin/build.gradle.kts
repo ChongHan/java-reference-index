@@ -53,8 +53,13 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
+val testMaxParallelForks = providers.gradleProperty("javaReferenceIndex.test.maxParallelForks")
+    .map { it.toInt().coerceAtLeast(1) }
+    .getOrElse(minOf(4, Runtime.getRuntime().availableProcessors()))
+
 tasks.test {
     useJUnitPlatform()
+    maxParallelForks = testMaxParallelForks
 }
 
 tasks.named<Jar>("shadowJar") {

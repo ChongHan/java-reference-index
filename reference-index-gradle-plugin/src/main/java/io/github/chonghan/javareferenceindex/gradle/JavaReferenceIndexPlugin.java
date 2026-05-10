@@ -3,9 +3,9 @@ package io.github.chonghan.javareferenceindex.gradle;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Comparator;
-import java.util.Set;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.gradle.api.Plugin;
@@ -19,6 +19,7 @@ import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.jvm.tasks.Jar;
 
 public class JavaReferenceIndexPlugin implements Plugin<Project> {
     static final String INDEX_TASK_NAME = "javaReferenceIndex";
@@ -227,7 +228,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             return Stream.empty();
         }
         List<SourceSet> matchingSourceSets = java.getSourceSets().stream()
-            .filter(candidateSourceSet -> outputIsOnClasspath(candidateSourceSet, compileClasspath))
+            .filter(candidateSourceSet -> outputIsOnClasspath(project, candidateSourceSet, compileClasspath))
             .toList();
         if (!matchingSourceSets.isEmpty()) {
             return matchingSourceSets.stream()
@@ -241,8 +242,9 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             .flatMap(candidateSourceSet -> sourceRootSpecs(project, candidateSourceSet, false));
     }
 
-    private static boolean outputIsOnClasspath(SourceSet sourceSet, Set<Path> compileClasspath) {
-        return sourceSetOutputPaths(sourceSet).anyMatch(compileClasspath::contains);
+    private static boolean outputIsOnClasspath(Project project, SourceSet sourceSet, Set<Path> compileClasspath) {
+        return sourceSetOutputPaths(sourceSet).anyMatch(compileClasspath::contains)
+            || sourceSetJarOutputs(project, sourceSet).anyMatch(compileClasspath::contains);
     }
 
     private static Stream<Path> sourceSetOutputPaths(SourceSet sourceSet) {
@@ -253,6 +255,31 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             return classesDirs;
         }
         return Stream.concat(classesDirs, Stream.of(normalizedPath(resourcesDir)));
+    }
+
+    private static Stream<Path> sourceSetJarOutputs(Project project, SourceSet sourceSet) {
+        Set<Path> outputPaths = sourceSetOutputPaths(sourceSet).collect(Collectors.toSet());
+        Set<String> outputTaskNames = sourceSetOutputTaskNames(sourceSet);
+        return project.getTasks().withType(Jar.class).stream()
+            .filter(jar -> jarPackagesSourceSet(jar, outputPaths, outputTaskNames))
+            .map(jar -> normalizedPath(jar.getArchiveFile().get().getAsFile()));
+    }
+
+    private static boolean jarPackagesSourceSet(Jar jar, Set<Path> outputPaths, Set<String> outputTaskNames) {
+        return jar.getSource().getFiles().stream()
+            .map(JavaReferenceIndexPlugin::normalizedPath)
+            .anyMatch(outputPaths::contains)
+            || jar.getTaskDependencies().getDependencies(jar).stream()
+                .map(Task::getName)
+                .anyMatch(outputTaskNames::contains);
+    }
+
+    private static Set<String> sourceSetOutputTaskNames(SourceSet sourceSet) {
+        return Set.of(
+            sourceSet.getClassesTaskName(),
+            sourceSet.getCompileJavaTaskName(),
+            sourceSet.getProcessResourcesTaskName()
+        );
     }
 
     private static Stream<IndexJavaReferencesTask.SourceRootSpec> sourceRootSpecs(
@@ -300,7 +327,6 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
     private static List<IndexJavaReferencesTask.ClasspathEntrySpec> classpathEntries(Project project, SourceSet sourceSet) {
         Map<String, String> artifactTargets = artifactTargets(project, sourceSet);
         return sourceSet.getCompileClasspath().getFiles().stream()
-            .filter(File::exists)
             .map(File::toPath)
             .map(Path::toAbsolutePath)
             .map(Path::normalize)

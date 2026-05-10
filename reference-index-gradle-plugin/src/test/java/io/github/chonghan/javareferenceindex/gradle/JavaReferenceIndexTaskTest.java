@@ -50,6 +50,20 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceIndex_withProjectArtifactDependency_writesArtifactSourceReference() throws IOException {
+        copyFixture("project-artifact-dependency");
+
+        var result = gradle(":app:javaReferenceIndex");
+
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir.resolve("app")))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/api/java/libapi/ArtifactType.java,libapi.ArtifactType"
+            );
+    }
+
+    @Test
     void javaReferenceIndexAll_fromRootProject_indexesAllSubprojects() throws IOException {
         copyFixture("multi-project");
 

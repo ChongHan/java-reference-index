@@ -64,6 +64,20 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceIndex_withTasksRealizedDuringAfterEvaluate_doesNotMutateTaskContainer() throws IOException {
+        copyFixture("after-evaluate-task-realization");
+
+        var result = gradle("javaReferenceIndex");
+
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                ":,src/main/java/example/App.java,source,:,src/main/java/example/Helper.java,example.Helper"
+            );
+    }
+
+    @Test
     void javaReferenceIndexAll_fromRootProject_indexesAllSubprojects() throws IOException {
         copyFixture("multi-project");
 

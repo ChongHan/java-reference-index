@@ -11,6 +11,8 @@ import java.util.stream.Stream;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.PublishArtifact;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
@@ -19,7 +21,6 @@ import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
-import org.gradle.jvm.tasks.Jar;
 
 public class JavaReferenceIndexPlugin implements Plugin<Project> {
     static final String INDEX_TASK_NAME = "javaReferenceIndex";
@@ -244,7 +245,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
 
     private static boolean outputIsOnClasspath(Project project, SourceSet sourceSet, Set<Path> compileClasspath) {
         return sourceSetOutputPaths(sourceSet).anyMatch(compileClasspath::contains)
-            || sourceSetJarOutputs(project, sourceSet).anyMatch(compileClasspath::contains);
+            || sourceSetArtifactOutputs(project, sourceSet).anyMatch(compileClasspath::contains);
     }
 
     private static Stream<Path> sourceSetOutputPaths(SourceSet sourceSet) {
@@ -257,19 +258,23 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         return Stream.concat(classesDirs, Stream.of(normalizedPath(resourcesDir)));
     }
 
-    private static Stream<Path> sourceSetJarOutputs(Project project, SourceSet sourceSet) {
-        Set<Path> outputPaths = sourceSetOutputPaths(sourceSet).collect(Collectors.toSet());
+    private static Stream<Path> sourceSetArtifactOutputs(Project project, SourceSet sourceSet) {
         Set<String> outputTaskNames = sourceSetOutputTaskNames(sourceSet);
-        return project.getTasks().withType(Jar.class).stream()
-            .filter(jar -> jarPackagesSourceSet(jar, outputPaths, outputTaskNames))
-            .map(jar -> normalizedPath(jar.getArchiveFile().get().getAsFile()));
+        return project.getConfigurations().stream()
+            .filter(Configuration::isCanBeConsumed)
+            .flatMap(configuration -> configuration.getOutgoing().getArtifacts().stream())
+            .filter(artifact -> artifactBuildsSourceSet(artifact, outputTaskNames))
+            .map(artifact -> normalizedPath(artifact.getFile()));
     }
 
-    private static boolean jarPackagesSourceSet(Jar jar, Set<Path> outputPaths, Set<String> outputTaskNames) {
-        return jar.getSource().getFiles().stream()
-            .map(JavaReferenceIndexPlugin::normalizedPath)
-            .anyMatch(outputPaths::contains)
-            || jar.getTaskDependencies().getDependencies(jar).stream()
+    private static boolean artifactBuildsSourceSet(PublishArtifact artifact, Set<String> outputTaskNames) {
+        return artifact.getBuildDependencies().getDependencies(null).stream()
+            .anyMatch(task -> taskBuildsSourceSet(task, outputTaskNames));
+    }
+
+    private static boolean taskBuildsSourceSet(Task task, Set<String> outputTaskNames) {
+        return outputTaskNames.contains(task.getName())
+            || task.getTaskDependencies().getDependencies(task).stream()
                 .map(Task::getName)
                 .anyMatch(outputTaskNames::contains);
     }

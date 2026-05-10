@@ -50,6 +50,19 @@ class JdtJavaReferenceIndexerTest {
     }
 
     @Test
+    void index_withJdkNestedInternalAndWildcardReferences_ignoresReferences() {
+        Path sourceRoot = fixtureSourceRoot("jdt-indexer-jdk-references");
+        Path sourceFile = sourceRoot.resolve("example/UsesJdkReferences.java");
+
+        ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of()));
+
+        FileReferenceSet references = singleFile(index);
+        assertThat(references.sourceReferences()).isEmpty();
+        assertThat(references.binaryReferences()).isEmpty();
+        assertThat(references.unresolvedReferences()).isEmpty();
+    }
+
+    @Test
     void index_withSourceReference_resolvesReferencedSourceFile() {
         Path sourceRoot = fixtureSourceRoot("jdt-indexer-source-reference");
         Path sourceFile = sourceRoot.resolve("example/UsesHelper.java");

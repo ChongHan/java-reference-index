@@ -8,8 +8,10 @@ import io.github.chonghan.javareferenceindex.model.SourceReference;
 import io.github.chonghan.javareferenceindex.model.UnresolvedReference;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.CastExpression;
 import org.eclipse.jdt.core.dom.ClassInstanceCreation;
@@ -69,6 +71,8 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         private final Map<String, SourceReference> sourceReferences = new LinkedHashMap<>();
         private final Map<String, BinaryReference> binaryReferences = new LinkedHashMap<>();
         private final Map<String, UnresolvedReference> unresolvedReferences = new LinkedHashMap<>();
+        private final Set<String> ignoredImportedTopLevelNames = new HashSet<>();
+        private final Set<String> ignoredOnDemandImportNames = new HashSet<>();
 
         private ReferenceCollector(
             Path sourceFile,
@@ -102,6 +106,7 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
 
         @Override
         public boolean visit(ImportDeclaration node) {
+            recordIgnoredImport(node);
             record(node.resolveBinding());
             return false;
         }
@@ -266,10 +271,34 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         }
 
         private void recordUnresolved(String name) {
+            if (shouldIgnoreUnresolved(name)) {
+                return;
+            }
             if (recordRecoveredSourceReference(name)) {
                 return;
             }
             unresolvedReferences.putIfAbsent(name, new UnresolvedReference(name));
+        }
+
+        private void recordIgnoredImport(ImportDeclaration node) {
+            String importedName = node.getName().getFullyQualifiedName();
+            if (shouldIgnore(importedName)) {
+                if (node.isOnDemand()) {
+                    ignoredOnDemandImportNames.add(importedName);
+                    return;
+                }
+                ignoredImportedTopLevelNames.add(simpleName(importedName));
+            }
+        }
+
+        private boolean shouldIgnoreUnresolved(String name) {
+            if (shouldIgnore(name)) {
+                return true;
+            }
+            int firstSegmentEnd = name.indexOf('.');
+            String firstSegment = firstSegmentEnd < 0 ? name : name.substring(0, firstSegmentEnd);
+            return ignoredImportedTopLevelNames.contains(firstSegment)
+                || ignoredOnDemandImportNames.stream().anyMatch(importName -> hasLoadableTopLevelType(importName, firstSegment));
         }
 
         private boolean recordRecoveredSourceReference(String name) {
@@ -280,7 +309,30 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         }
 
         private static boolean shouldIgnore(String qualifiedName) {
-            return qualifiedName == null || qualifiedName.isBlank() || qualifiedName.startsWith("java.");
+            return qualifiedName == null
+                || qualifiedName.isBlank()
+                || qualifiedName.startsWith("java.")
+                || qualifiedName.startsWith("javax.")
+                || qualifiedName.startsWith("jdk.")
+                || qualifiedName.startsWith("sun.")
+                || qualifiedName.startsWith("com.sun.");
+        }
+
+        private static String simpleName(String qualifiedName) {
+            int lastSeparator = qualifiedName.lastIndexOf('.');
+            if (lastSeparator < 0) {
+                return qualifiedName;
+            }
+            return qualifiedName.substring(lastSeparator + 1);
+        }
+
+        private static boolean hasLoadableTopLevelType(String packageName, String simpleName) {
+            try {
+                Class.forName(packageName + "." + simpleName, false, ClassLoader.getSystemClassLoader());
+                return true;
+            } catch (LinkageError | ClassNotFoundException e) {
+                return false;
+            }
         }
 
         private FileReferenceSet toReferenceSet() {

@@ -112,6 +112,22 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceIndex_withLombokBuilder_writesBinaryAnnotationReference() throws IOException {
+        copyFixture("lombok-annotation-dependency");
+
+        var result = gradle("javaReferenceIndex");
+
+        assertThat(result.task(":compileJava").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir))
+            .containsExactly(
+                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                ":,src/main/java/example/App.java,binary,org.projectlombok:lombok:1.18.32,,lombok.Builder",
+                ":,src/main/java/example/UsesBuilder.java,source,:,src/main/java/example/App.java,example.App"
+            );
+    }
+
+    @Test
     void javaReferenceIndex_withTestSourceSet_resolvesMainSourceReference() throws IOException {
         copyFixture("test-source-set");
 

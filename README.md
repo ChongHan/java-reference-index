@@ -21,8 +21,6 @@ subprojects {
 ```
 
 Apply the plugin to the root project for repo-wide query tasks, and to each Java subproject that should produce an index.
-The root-only `javaReferenceIndexAll` task builds indexes for all indexed projects; per-project `javaReferenceIndex`
-tasks index only that project.
 
 Query from the root project:
 
@@ -30,17 +28,21 @@ Query from the root project:
 ./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
 ```
 
-Build all project indexes without querying:
-
-```bash
-./gradlew javaReferenceIndexAll
-```
+`javaReferenceQuery` is the normal entry point. When run from the root project, it automatically depends on `:javaReferenceIndexAll` and builds the needed per-project CSV indexes before running SQL. You do not need to run an index task by hand before querying.
 
 Ask Gradle for the live schema and examples:
 
 ```bash
 ./gradlew help --task javaReferenceQuery
 ```
+
+If you only want to build or refresh CSV files without running SQL, use the root-only aggregate task:
+
+```bash
+./gradlew :javaReferenceIndexAll
+```
+
+Per-project `javaReferenceIndex` tasks index only that project and are mostly useful for focused debugging.
 
 ## What Agents Can Ask
 

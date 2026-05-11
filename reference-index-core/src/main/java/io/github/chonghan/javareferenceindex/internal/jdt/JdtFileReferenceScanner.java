@@ -254,10 +254,20 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         }
 
         private boolean recordSourceReference(String qualifiedName) {
+            return recordSourceReference(qualifiedName, qualifiedName);
+        }
+
+        private boolean recordSourceReference(String qualifiedName, String recordedQualifiedName) {
             var reference = referenceResolver.resolveSource(qualifiedName, sourceFile, request);
             reference.ifPresent(sourceReference -> {
-                sourceReferences.putIfAbsent(qualifiedName, sourceReference);
+                sourceReferences.putIfAbsent(recordedQualifiedName, new SourceReference(
+                    recordedQualifiedName,
+                    sourceReference.sourceFile(),
+                    sourceReference.targetProject(),
+                    sourceReference.targetSourceSet()
+                ));
                 binaryReferences.remove(qualifiedName);
+                binaryReferences.remove(recordedQualifiedName);
             });
             return reference.isPresent();
         }
@@ -302,10 +312,33 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         }
 
         private boolean recordRecoveredSourceReference(String name) {
-            if (name.contains(".") || packageName.isBlank()) {
+            if (packageName.isBlank()) {
                 return recordSourceReference(name);
             }
+            if (name.contains(".")) {
+                return recordPackageQualifiedTopLevelReference(name)
+                    || recordSourceReference(name);
+            }
             return recordSourceReference(packageName + "." + name) || recordSourceReference(name);
+        }
+
+        private boolean recordPackageQualifiedTopLevelReference(String name) {
+            if (!startsWithTypeName(name)) {
+                return false;
+            }
+            return recordSourceReference(packageName + "." + name, packageName + "." + firstSegment(name));
+        }
+
+        private static boolean startsWithTypeName(String name) {
+            return !name.isBlank() && Character.isUpperCase(name.charAt(0));
+        }
+
+        private static String firstSegment(String name) {
+            int firstSeparator = name.indexOf('.');
+            if (firstSeparator < 0) {
+                return name;
+            }
+            return name.substring(0, firstSeparator);
         }
 
         private static boolean shouldIgnore(String qualifiedName) {

@@ -214,6 +214,21 @@ class JdtJavaReferenceIndexerTest {
     }
 
     @Test
+    void index_withGeneratedInnerTypeReference_recordsTopLevelSourceReference() {
+        Path sourceRoot = fixtureSourceRoot("jdt-indexer-generated-inner-reference");
+        Path sourceFile = sourceRoot.resolve("example/UsesGeneratedInner.java");
+        Path targetFile = sourceRoot.resolve("example/App.java").toAbsolutePath().normalize();
+
+        ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of()));
+
+        FileReferenceSet references = singleFile(index);
+        assertThat(references.sourceReferences())
+            .containsExactly(sourceReference("example.App", targetFile));
+        assertThat(references.binaryReferences()).isEmpty();
+        assertThat(references.unresolvedReferences()).isEmpty();
+    }
+
+    @Test
     void index_withAgronaReference_resolvesClasspathJar() {
         Path sourceRoot = fixtureSourceRoot("jdt-indexer-agrona-reference");
         Path sourceFile = sourceRoot.resolve("example/UsesAgrona.java");

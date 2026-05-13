@@ -21,6 +21,7 @@ import io.github.chonghan.javareferenceindex.model.SourceRoot;
 import io.github.chonghan.javareferenceindex.model.SourceSetCoordinates;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
@@ -177,6 +178,50 @@ class JdtJavaReferenceIndexerTest {
 
         assertThat(singleFile(index).sourceReferences())
             .containsExactly(sourceReference("example.with.dot.Helper", helperFile.toAbsolutePath().normalize()));
+    }
+
+    @Test
+    void index_withNonUtf8SourceEncoding_resolvesSourceReference() {
+        Path sourceRoot = tempDir.resolve("latin1-src");
+        Path sourceFile = sourceRoot.resolve("example/UsesCaféDependency.java");
+        Path targetFile = sourceRoot.resolve("example/CaféDependency.java");
+        Charset encoding = StandardCharsets.ISO_8859_1;
+        writeSource(
+            sourceFile,
+            """
+            package example;
+
+            public class UsesCaféDependency {
+                private CaféDependency dependency;
+            }
+            """,
+            encoding
+        );
+        writeSource(
+            targetFile,
+            """
+            package example;
+
+            public class CaféDependency {
+            }
+            """,
+            encoding
+        );
+
+        ProjectCoordinates project = new ProjectCoordinates(":fixture");
+        SourceSetCoordinates main = new SourceSetCoordinates("main");
+        JavaCompilerSettings java21 = JavaCompilerSettings.java21();
+        ProjectIndex index = indexer.index(new ProjectIndexingRequest(
+            project,
+            main,
+            List.of(new SourceRoot(sourceRoot, project, main)),
+            List.of(sourceFile),
+            List.of(),
+            new JavaCompilerSettings(java21.sourceLevel(), java21.targetLevel(), java21.release(), encoding)
+        ));
+
+        assertThat(singleFile(index).sourceReferences())
+            .containsExactly(sourceReference("example.CaféDependency", targetFile.toAbsolutePath().normalize()));
     }
 
     @Test
@@ -365,9 +410,13 @@ class JdtJavaReferenceIndexerTest {
     }
 
     private static void writeSource(Path sourceFile, String content) {
+        writeSource(sourceFile, content, StandardCharsets.UTF_8);
+    }
+
+    private static void writeSource(Path sourceFile, String content, Charset encoding) {
         try {
             java.nio.file.Files.createDirectories(sourceFile.getParent());
-            java.nio.file.Files.writeString(sourceFile, content);
+            java.nio.file.Files.writeString(sourceFile, content, encoding);
         } catch (java.io.IOException e) {
             throw new IllegalStateException(e);
         }

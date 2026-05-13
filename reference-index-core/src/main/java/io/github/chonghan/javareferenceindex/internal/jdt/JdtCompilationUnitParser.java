@@ -2,31 +2,29 @@ package io.github.chonghan.javareferenceindex.internal.jdt;
 
 import io.github.chonghan.javareferenceindex.model.ClasspathEntry;
 import io.github.chonghan.javareferenceindex.model.ProjectIndexingRequest;
-import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.FileASTRequestor;
 
 final class JdtCompilationUnitParser implements CompilationUnitParser {
     @Override
-    public CompilationUnit parse(Path sourceFile, ProjectIndexingRequest request) {
+    public Map<Path, CompilationUnit> parse(ProjectIndexingRequest request) {
         ASTParser parser = ASTParser.newParser(AST.JLS21);
         parser.setKind(ASTParser.K_COMPILATION_UNIT);
         parser.setResolveBindings(true);
         parser.setBindingsRecovery(true);
         parser.setStatementsRecovery(true);
-        parser.setUnitName(sourceFile.getFileName().toString());
-        parser.setSource(readSource(sourceFile, request.compilerSettings().encoding()).toCharArray());
         parser.setEnvironment(
             toStrings(request.classpathEntries()),
             sourceRootPaths(request),
-            null,
+            sourceRootEncodings(request),
             true
         );
 
@@ -34,20 +32,43 @@ final class JdtCompilationUnitParser implements CompilationUnitParser {
         JavaCore.setComplianceOptions(request.compilerSettings().effectiveSourceLevel().compilerLevel(), options);
         parser.setCompilerOptions(options);
 
-        return (CompilationUnit) parser.createAST(null);
-    }
-
-    private static String readSource(Path sourceFile, Charset encoding) {
-        try {
-            return Files.readString(sourceFile, encoding);
-        } catch (IOException e) {
-            throw new IllegalStateException("Failed to read source file " + sourceFile, e);
-        }
+        Map<Path, CompilationUnit> compilationUnits = new LinkedHashMap<>();
+        parser.createASTs(
+            sourceFilePaths(request),
+            sourceFileEncodings(request),
+            new String[0],
+            new FileASTRequestor() {
+                @Override
+                public void acceptAST(String sourceFilePath, CompilationUnit ast) {
+                    compilationUnits.put(Path.of(sourceFilePath).toAbsolutePath().normalize(), ast);
+                }
+            },
+            null
+        );
+        return compilationUnits;
     }
 
     private static String[] sourceRootPaths(ProjectIndexingRequest request) {
         return request.sourceRoots().stream()
             .map(sourceRoot -> sourceRoot.path().toAbsolutePath().normalize().toString())
+            .toArray(String[]::new);
+    }
+
+    private static String[] sourceRootEncodings(ProjectIndexingRequest request) {
+        return request.sourceRoots().stream()
+            .map(_sourceRoot -> request.compilerSettings().encoding().name())
+            .toArray(String[]::new);
+    }
+
+    private static String[] sourceFilePaths(ProjectIndexingRequest request) {
+        return request.sourceFiles().stream()
+            .map(path -> path.toAbsolutePath().normalize().toString())
+            .toArray(String[]::new);
+    }
+
+    private static String[] sourceFileEncodings(ProjectIndexingRequest request) {
+        return request.sourceFiles().stream()
+            .map(_sourceFile -> request.compilerSettings().encoding().name())
             .toArray(String[]::new);
     }
 

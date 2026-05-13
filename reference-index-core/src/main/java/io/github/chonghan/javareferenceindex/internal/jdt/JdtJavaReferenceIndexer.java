@@ -2,10 +2,8 @@ package io.github.chonghan.javareferenceindex.internal.jdt;
 
 import io.github.chonghan.javareferenceindex.api.JavaReferenceIndexer;
 import io.github.chonghan.javareferenceindex.internal.resolve.SourceAndClasspathTypeReferenceResolver;
-import io.github.chonghan.javareferenceindex.model.FileReferenceSet;
 import io.github.chonghan.javareferenceindex.model.ProjectIndex;
 import io.github.chonghan.javareferenceindex.model.ProjectIndexingRequest;
-import java.util.List;
 
 public final class JdtJavaReferenceIndexer implements JavaReferenceIndexer {
     private final FileReferenceScanner fileReferenceScanner;
@@ -23,9 +21,7 @@ public final class JdtJavaReferenceIndexer implements JavaReferenceIndexer {
 
     @Override
     public ProjectIndex index(ProjectIndexingRequest request) {
-        List<FileReferenceSet> files = request.sourceFiles().parallelStream()
-            .map(sourceFile -> fileReferenceScanner.scan(sourceFile, request))
-            .toList();
+        var files = fileReferenceScanner.scan(request);
         return new ProjectIndex(request.project(), request.sourceSet(), files);
     }
 }

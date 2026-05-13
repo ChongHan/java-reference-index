@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.eclipse.jdt.core.dom.ASTVisitor;
@@ -49,11 +50,24 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
     }
 
     @Override
-    public FileReferenceSet scan(Path sourceFile, ProjectIndexingRequest request) {
-        CompilationUnit compilationUnit = parser.parse(sourceFile, request);
+    public List<FileReferenceSet> scan(ProjectIndexingRequest request) {
+        Map<Path, CompilationUnit> compilationUnits = parser.parse(request);
+        return request.sourceFiles().stream()
+            .map(sourceFile -> scan(sourceFile, compilationUnits.get(normalize(sourceFile)), request))
+            .toList();
+    }
+
+    private FileReferenceSet scan(Path sourceFile, CompilationUnit compilationUnit, ProjectIndexingRequest request) {
+        if (compilationUnit == null) {
+            throw new IllegalStateException("JDT did not produce an AST for source file " + sourceFile);
+        }
         ReferenceCollector collector = new ReferenceCollector(sourceFile, request, referenceResolver, packageName(compilationUnit));
         compilationUnit.accept(collector);
         return collector.toReferenceSet();
+    }
+
+    private static Path normalize(Path sourceFile) {
+        return sourceFile.toAbsolutePath().normalize();
     }
 
     private static String packageName(CompilationUnit compilationUnit) {
@@ -107,7 +121,7 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         @Override
         public boolean visit(ImportDeclaration node) {
             recordIgnoredImport(node);
-            record(node.resolveBinding());
+            recordImport(node);
             return false;
         }
 
@@ -215,6 +229,22 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
             } else if (binding instanceof IVariableBinding variableBinding) {
                 record(variableBinding);
             }
+        }
+
+        private void recordImport(ImportDeclaration node) {
+            if (node.isOnDemand() && !node.isStatic()) {
+                return;
+            }
+
+            String importedName = node.getName().getFullyQualifiedName();
+            String qualifiedName = node.isStatic() && !node.isOnDemand() ? withoutLastSegment(importedName) : importedName;
+            if (shouldIgnore(qualifiedName)) {
+                return;
+            }
+            if (recordSourceReference(qualifiedName)) {
+                return;
+            }
+            recordBinaryReference(qualifiedName);
         }
 
         private void recordType(ITypeBinding binding, String unresolvedName) {
@@ -357,6 +387,14 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
                 return qualifiedName;
             }
             return qualifiedName.substring(lastSeparator + 1);
+        }
+
+        private static String withoutLastSegment(String qualifiedName) {
+            int lastSeparator = qualifiedName.lastIndexOf('.');
+            if (lastSeparator < 0) {
+                return qualifiedName;
+            }
+            return qualifiedName.substring(0, lastSeparator);
         }
 
         private static boolean hasLoadableTopLevelType(String packageName, String simpleName) {

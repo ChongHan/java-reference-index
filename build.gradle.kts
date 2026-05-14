@@ -1,6 +1,6 @@
 plugins {
     alias(libs.plugins.nmcp.aggregation)
-    alias(libs.plugins.java.reference.index) apply false
+    alias(libs.plugins.java.reference.index)
 }
 
 group = "io.github.chonghan"

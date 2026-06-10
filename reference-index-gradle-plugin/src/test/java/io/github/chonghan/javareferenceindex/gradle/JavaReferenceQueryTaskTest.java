@@ -118,6 +118,52 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceQuery_afterSourceFileChange_reindexesAndQueriesUpdatedCsv() throws IOException {
+        copyFixture("single-project");
+        String query = "select source_path, target_path from java_references order by source_path, target_path";
+
+        var initialResult = gradle(
+            "javaReferenceQuery",
+            "-Psql=" + query,
+            "--configuration-cache"
+        );
+        var upToDateResult = gradle(
+            "javaReferenceQuery",
+            "-Psql=" + query,
+            "--configuration-cache"
+        );
+        Files.writeString(
+            projectDir.resolve("src/main/java/example/App.java"),
+            """
+            package example;
+
+            public class App {
+            }
+            """
+        );
+        var changedResult = gradle(
+            "javaReferenceQuery",
+            "-Psql=" + query,
+            "--configuration-cache"
+        );
+
+        assertThat(initialResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(initialResult.getOutput())
+            .contains("source_path,target_path")
+            .contains("src/main/java/example/App.java,src/main/java/example/Helper.java");
+        assertThat(upToDateResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.UP_TO_DATE);
+        assertThat(upToDateResult.getOutput())
+            .contains("source_path,target_path")
+            .contains("src/main/java/example/App.java,src/main/java/example/Helper.java");
+        assertThat(changedResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(changedResult.getOutput())
+            .contains("source_path,target_path")
+            .doesNotContain("src/main/java/example/App.java,src/main/java/example/Helper.java");
+        assertThat(referencesCsv(projectDir))
+            .containsExactly("source_project,source_path,target_kind,target_project,target_path,target_type");
+    }
+
+    @Test
     void javaReferenceQuery_withMalformedSql_reportsDuckDbError() throws IOException {
         copyFixture("single-project");
 

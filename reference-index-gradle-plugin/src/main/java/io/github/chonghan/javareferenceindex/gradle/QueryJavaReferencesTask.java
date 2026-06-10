@@ -5,9 +5,11 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import javax.inject.Inject;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Optional;
@@ -48,6 +50,9 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
         this.sql = sql;
     }
 
+    @Inject
+    protected abstract ProviderFactory getProviders();
+
     static String taskDescription() {
         return """
             Query Java reference edges with DuckDB SQL.
@@ -57,6 +62,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             Source row: %s
             Binary row: %s
             Use -q for clean query output without Gradle task noise.
+            Pass SQL with --sql or -Psql. Prefer -Psql for repeated ad-hoc queries with configuration cache.
             Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
             Root query depends on :javaReferenceIndexAll, the root-only aggregate index task.
             Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.
@@ -79,8 +85,9 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
 
     @TaskAction
     public void javaReferenceQuery() {
-        if (sql == null || sql.isBlank()) {
-            throw new GradleException("Pass a SQL query with --sql \"select * from java_references\"");
+        String querySql = effectiveSql();
+        if (querySql == null || querySql.isBlank()) {
+            throw new GradleException("Pass a SQL query with --sql \"select * from java_references\" or -Psql=\"select * from java_references\"");
         }
 
         List<File> csvFiles = getReferenceIndexFiles().getFiles().stream()
@@ -108,7 +115,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
                     + ", header = true, all_varchar = true, union_by_name = true)");
             }
 
-            boolean hasResultSet = statement.execute(sql);
+            boolean hasResultSet = statement.execute(querySql);
             if (!hasResultSet) {
                 getLogger().quiet("Query completed without a result set.");
                 return;
@@ -120,6 +127,13 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
         } catch (SQLException e) {
             throw new GradleException("Failed to query Java reference index CSV files", e);
         }
+    }
+
+    private String effectiveSql() {
+        if (sql != null && !sql.isBlank()) {
+            return sql;
+        }
+        return getProviders().gradleProperty("sql").getOrNull();
     }
 
     private static void loadDuckDbDriver() {

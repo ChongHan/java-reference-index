@@ -43,6 +43,48 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceQuery_withSqlGradleProperty_printsRowsFromGeneratedCsvFiles() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradle(
+            "-q",
+            "javaReferenceQuery",
+            "-Psql=select source_path, target_kind, target_path from java_references order by source_path, target_path"
+        );
+
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput()).isEqualTo("""
+            source_path,target_kind,target_path
+            src/main/java/example/App.java,source,src/main/java/example/Helper.java
+            """);
+    }
+
+    @Test
+    void javaReferenceQuery_withSqlGradleProperty_reusesConfigurationCacheWhenSqlChanges() throws IOException {
+        copyFixture("single-project");
+
+        var firstResult = gradle(
+            "javaReferenceQuery",
+            "-Psql=select 20 as value",
+            "--configuration-cache"
+        );
+        var secondResult = gradle(
+            "javaReferenceQuery",
+            "-Psql=select 21 as value",
+            "--configuration-cache"
+        );
+
+        assertThat(firstResult.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(firstResult.getOutput())
+            .contains("value\n20")
+            .contains("Configuration cache entry stored.");
+        assertThat(secondResult.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(secondResult.getOutput())
+            .contains("value\n21")
+            .contains("Configuration cache entry reused.");
+    }
+
+    @Test
     void javaReferenceQuery_fromRootProject_queriesSubprojectCsvFiles() throws IOException {
         copyFixture("multi-project");
 

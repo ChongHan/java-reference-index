@@ -25,6 +25,7 @@ class JavaReferenceHelpTaskTest extends GradlePluginTestKit {
             .contains("Source row: :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType")
             .contains("Binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.DirectBuffer")
             .contains("Use -q for clean query output without Gradle task noise.")
+            .contains("Pass SQL with --sql or -Psql. Prefer -Psql for repeated ad-hoc queries with configuration cache.")
             .contains("Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql \"select * from java_references limit 20\"")
             .contains("Root query depends on :javaReferenceIndexAll, the root-only aggregate index task.")
             .contains("Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.")

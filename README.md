@@ -33,6 +33,12 @@ Run repo-wide queries from the root project with the leading `:`:
 ./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
 ```
 
+For repeated ad-hoc queries with Gradle's configuration cache, pass SQL as a Gradle property so changing only the SQL text can reuse the cached task graph:
+
+```bash
+./gradlew -q :javaReferenceQuery -Psql="select * from java_references limit 20"
+```
+
 `javaReferenceQuery` is the normal entry point. The root task depends on `:javaReferenceIndexAll`, so it builds the needed per-project CSV indexes before running SQL. You do not need to run an index task by hand before querying.
 
 Ask Gradle for the live schema and examples:

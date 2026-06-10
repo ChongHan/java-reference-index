@@ -20,12 +20,23 @@ abstract class GradlePluginTestKit {
     }
 
     BuildResult gradle(Path projectDirectory, String... arguments) {
+        return gradleRunner(projectDirectory, arguments).build();
+    }
+
+    BuildResult gradleAndFail(String... arguments) {
+        return gradleAndFail(projectDir, arguments);
+    }
+
+    BuildResult gradleAndFail(Path projectDirectory, String... arguments) {
+        return gradleRunner(projectDirectory, arguments).buildAndFail();
+    }
+
+    private static GradleRunner gradleRunner(Path projectDirectory, String... arguments) {
         return GradleRunner.create()
             .withProjectDir(projectDirectory.toFile())
             .withPluginClasspath()
             .withArguments(arguments)
-            .forwardOutput()
-            .build();
+            .forwardOutput();
     }
 
     static List<String> referencesCsv(Path projectDirectory) throws IOException {

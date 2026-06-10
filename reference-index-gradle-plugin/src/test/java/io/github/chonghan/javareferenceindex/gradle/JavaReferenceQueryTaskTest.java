@@ -85,6 +85,22 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceQuery_withMalformedSql_reportsDuckDbError() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradleAndFail(
+            "javaReferenceQuery",
+            "--sql",
+            "select from java_references"
+        );
+
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.FAILED);
+        assertThat(result.getOutput())
+            .contains("Parser Error")
+            .doesNotContain("> Failed to query Java reference index CSV files");
+    }
+
+    @Test
     void javaReferenceQuery_fromRootProject_queriesSubprojectCsvFiles() throws IOException {
         copyFixture("multi-project");
 

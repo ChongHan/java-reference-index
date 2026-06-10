@@ -125,7 +125,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
                 logResultSet(resultSet);
             }
         } catch (SQLException e) {
-            throw new GradleException("Failed to query Java reference index CSV files", e);
+            throw new GradleException("DuckDB query failed: " + e.getMessage(), e);
         }
     }
 

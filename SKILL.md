@@ -17,10 +17,10 @@ Confirm the task and live schema when needed:
 ./gradlew help --task javaReferenceQuery
 ```
 
-Run repo-wide SQL from the root project with the leading `:`:
+Run repo-wide SQL from the root project with the leading `:`. Pass SQL only through the Gradle property `-Psql`:
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
+./gradlew -q :javaReferenceQuery -Psql="select * from java_references limit 20"
 ```
 
 The root `:javaReferenceQuery` task builds required indexes automatically through `:javaReferenceIndexAll`. Do not ask the user to run indexing separately unless you are debugging index generation.

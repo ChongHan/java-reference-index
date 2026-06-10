@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Classpath;
@@ -71,12 +72,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
 
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
-    public List<File> getSourceInputFiles() {
-        return sourceSets.stream()
-            .flatMap(sourceSet -> sourceSet.sourceFiles().stream())
-            .map(File::new)
-            .toList();
-    }
+    public abstract ConfigurableFileCollection getSourceInputFiles();
 
     @Classpath
     public List<File> getClasspathInputFiles() {
@@ -106,7 +102,10 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         long totalStart = System.nanoTime();
         long prepareStart = totalStart;
 
-        List<Path> sourceFiles = sourceSet.sourceFiles().stream().map(Path::of).toList();
+        List<Path> sourceFiles = sourceFiles(sourceSet);
+        if (sourceFiles.isEmpty()) {
+            return;
+        }
 
         ProjectCoordinates projectCoordinates = new ProjectCoordinates(sourceSet.projectPath());
         SourceSetCoordinates sourceSetCoordinates = new SourceSetCoordinates(sourceSet.sourceSetName());
@@ -187,7 +186,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             "[java-reference-index] %s %s files=%d sourceRoots=%d classpathEntries=%d prepare=%s index=%s csv=%s total=%s sourceRefs=%d binaryRefs=%d unresolvedRefs=%d".formatted(
                 sourceSet.projectPath(),
                 sourceSet.sourceSetName(),
-                sourceSet.sourceFiles().size(),
+                sourceFiles(sourceSet).size(),
                 sourceRootCount,
                 classpathEntryCount,
                 duration(prepareNanos),
@@ -199,6 +198,29 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
                 counts.unresolvedReferences()
             )
         );
+    }
+
+    private static List<Path> sourceFiles(SourceSetSpec sourceSet) {
+        return sourceSet.sourceRoots().stream()
+            .filter(sourceRoot -> sourceRoot.projectPath().equals(sourceSet.projectPath()))
+            .filter(sourceRoot -> sourceRoot.sourceSetName().equals(sourceSet.sourceSetName()))
+            .map(sourceRoot -> Path.of(sourceRoot.path()))
+            .filter(Files::isDirectory)
+            .flatMap(sourceRoot -> javaFiles(sourceRoot).stream())
+            .distinct()
+            .sorted()
+            .toList();
+    }
+
+    private static List<Path> javaFiles(Path sourceRoot) {
+        try (var paths = Files.walk(sourceRoot)) {
+            return paths
+                .filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().endsWith(".java"))
+                .toList();
+        } catch (IOException e) {
+            throw new GradleException("Failed to list Java source files under " + sourceRoot, e);
+        }
     }
 
     private static ReferenceCounts referenceCounts(ProjectIndex index) {
@@ -232,12 +254,10 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         String sourceSetName,
         String rootDir,
         List<SourceRootSpec> sourceRoots,
-        List<String> sourceFiles,
         List<ClasspathEntrySpec> classpathEntries
     ) implements Serializable {
         public SourceSetSpec {
             sourceRoots = List.copyOf(sourceRoots);
-            sourceFiles = List.copyOf(sourceFiles);
             classpathEntries = List.copyOf(classpathEntries);
         }
 
@@ -248,8 +268,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
                         "projectPath=" + projectPath,
                         "sourceSetName=" + sourceSetName
                     ),
-                    sourceRoots.stream().map(sourceRoot -> "sourceRoot=" + sourceRoot.cacheKey(rootDirPath)),
-                    sourceFiles.stream().map(sourceFile -> "sourceFile=" + relativePath(rootDirPath, Path.of(sourceFile)))
+                    sourceRoots.stream().map(sourceRoot -> "sourceRoot=" + sourceRoot.cacheKey(rootDirPath))
                 )
                 .flatMap(stream -> stream)
                 .sorted()

@@ -40,6 +40,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             project.afterEvaluate(evaluatedProject ->
                 taskProvider.configure(task -> {
                     task.setSourceSets(sourceSetSpecs(evaluatedProject));
+                    task.getSourceInputFiles().from(sourceInputFiles(evaluatedProject));
                     task.dependsOn(compileJavaTasks(evaluatedProject));
                 })
             )
@@ -166,11 +167,11 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         }
         return java.getSourceSets().stream()
             .flatMap(sourceSet -> {
-                List<String> sourceFiles = sourceFiles(sourceSet);
-                if (sourceFiles.isEmpty()) {
+                List<IndexJavaReferencesTask.SourceRootSpec> sourceRoots = sourceRoots(project, sourceSet);
+                if (sourceRoots.isEmpty()) {
                     return Stream.empty();
                 }
-                return Stream.of(sourceSetSpec(project, sourceSet, sourceFiles));
+                return Stream.of(sourceSetSpec(project, sourceSet, sourceRoots));
             })
             .toList();
     }
@@ -178,14 +179,13 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
     private static IndexJavaReferencesTask.SourceSetSpec sourceSetSpec(
         Project project,
         SourceSet sourceSet,
-        List<String> sourceFiles
+        List<IndexJavaReferencesTask.SourceRootSpec> sourceRoots
     ) {
         return new IndexJavaReferencesTask.SourceSetSpec(
             project.getPath(),
             sourceSet.getName(),
             project.getRootDir().toPath().toAbsolutePath().normalize().toString(),
-            sourceRoots(project, sourceSet),
-            sourceFiles,
+            sourceRoots,
             classpathEntries(project, sourceSet)
         );
     }
@@ -318,14 +318,13 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             .toList();
     }
 
-    private static List<String> sourceFiles(SourceSet sourceSet) {
-        return sourceSet.getAllJava().getFiles().stream()
-            .filter(File::isFile)
-            .map(File::toPath)
-            .map(Path::toAbsolutePath)
-            .map(Path::normalize)
-            .map(Path::toString)
-            .sorted()
+    private static List<?> sourceInputFiles(Project project) {
+        JavaPluginExtension java = project.getExtensions().findByType(JavaPluginExtension.class);
+        if (java == null) {
+            return List.of();
+        }
+        return java.getSourceSets().stream()
+            .map(SourceSet::getAllJava)
             .toList();
     }
 

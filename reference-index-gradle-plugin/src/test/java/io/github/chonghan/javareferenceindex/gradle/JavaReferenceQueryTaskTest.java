@@ -3,6 +3,8 @@ package io.github.chonghan.javareferenceindex.gradle;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.Test;
 
@@ -81,6 +83,37 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
         assertThat(secondResult.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(secondResult.getOutput())
             .contains("value\n21")
+            .contains("Configuration cache entry reused.");
+    }
+
+    @Test
+    void javaReferenceQuery_withSqlGradleProperty_reusesConfigurationCacheWhenSourceFileChanges() throws IOException {
+        copyFixture("single-project");
+
+        var firstResult = gradle(
+            "javaReferenceQuery",
+            "-Psql=select count(*) as rows from java_references",
+            "--configuration-cache"
+        );
+        Files.writeString(
+            projectDir.resolve("src/main/java/example/App.java"),
+            "\n// tiny source change\n",
+            StandardOpenOption.APPEND
+        );
+        var secondResult = gradle(
+            "javaReferenceQuery",
+            "-Psql=select count(*) as rows from java_references",
+            "--configuration-cache"
+        );
+
+        assertThat(firstResult.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(firstResult.getOutput())
+            .contains("rows\n1")
+            .contains("Configuration cache entry stored.");
+        assertThat(secondResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(secondResult.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(secondResult.getOutput())
+            .contains("rows\n1")
             .contains("Configuration cache entry reused.");
     }
 

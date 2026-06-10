@@ -10,13 +10,10 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.provider.ProviderFactory;
-import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
-import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
-import org.gradle.api.tasks.options.Option;
 import org.gradle.work.DisableCachingByDefault;
 
 @DisableCachingByDefault(because = "The task executes interactive SQL and logs query results instead of producing cached outputs.")
@@ -37,19 +34,6 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
     static final String BLAST_RADIUS_QUERY =
         "select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'";
 
-    private String sql;
-
-    @Input
-    @Optional
-    public String getSql() {
-        return sql;
-    }
-
-    @Option(option = "sql", description = "SQL query to run against the java_references table.")
-    public void setSql(String sql) {
-        this.sql = sql;
-    }
-
     @Inject
     protected abstract ProviderFactory getProviders();
 
@@ -62,12 +46,12 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             Source row: %s
             Binary row: %s
             Use -q for clean query output without Gradle task noise.
-            Pass SQL with --sql or -Psql. Prefer -Psql for repeated ad-hoc queries with configuration cache.
-            Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
+            Pass SQL with the Gradle property -Psql.
+            Repo-wide query from root: ./gradlew -q :javaReferenceQuery -Psql="select * from java_references limit 20"
             Root query depends on :javaReferenceIndexAll, the root-only aggregate index task.
             Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.
-            What this file references: ./gradlew -q :javaReferenceQuery --sql "%s"
-            Who references this file: ./gradlew -q :javaReferenceQuery --sql "%s"
+            What this file references: ./gradlew -q :javaReferenceQuery -Psql="%s"
+            Who references this file: ./gradlew -q :javaReferenceQuery -Psql="%s"
             """.formatted(
                 TABLE_NAME,
                 SCHEMA,
@@ -87,7 +71,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
     public void javaReferenceQuery() {
         String querySql = effectiveSql();
         if (querySql == null || querySql.isBlank()) {
-            throw new GradleException("Pass a SQL query with --sql \"select * from java_references\" or -Psql=\"select * from java_references\"");
+            throw new GradleException("Pass a SQL query with -Psql=\"select * from java_references\"");
         }
 
         List<File> csvFiles = getReferenceIndexFiles().getFiles().stream()
@@ -130,9 +114,6 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
     }
 
     private String effectiveSql() {
-        if (sql != null && !sql.isBlank()) {
-            return sql;
-        }
         return getProviders().gradleProperty("sql").getOrNull();
     }
 

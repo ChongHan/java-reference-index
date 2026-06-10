@@ -25,15 +25,13 @@ class JavaReferenceHelpTaskTest extends GradlePluginTestKit {
             .contains("Source row: :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType")
             .contains("Binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.DirectBuffer")
             .contains("Use -q for clean query output without Gradle task noise.")
-            .contains("Pass SQL with --sql or -Psql. Prefer -Psql for repeated ad-hoc queries with configuration cache.")
-            .contains("Repo-wide query from root: ./gradlew -q :javaReferenceQuery --sql \"select * from java_references limit 20\"")
+            .contains("Pass SQL with the Gradle property -Psql.")
+            .contains("Repo-wide query from root: ./gradlew -q :javaReferenceQuery -Psql=\"select * from java_references limit 20\"")
             .contains("Root query depends on :javaReferenceIndexAll, the root-only aggregate index task.")
             .contains("Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.")
-            .contains("What this file references: ./gradlew -q :javaReferenceQuery --sql \"select target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'\"")
-            .contains("Who references this file: ./gradlew -q :javaReferenceQuery --sql \"select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'\"")
-            .contains("Options")
-            .contains("--sql")
-            .contains("SQL query to run against the java_references table.");
+            .contains("What this file references: ./gradlew -q :javaReferenceQuery -Psql=\"select target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'\"")
+            .contains("Who references this file: ./gradlew -q :javaReferenceQuery -Psql=\"select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'\"")
+            .doesNotContain("--sql");
     }
 
     @Test

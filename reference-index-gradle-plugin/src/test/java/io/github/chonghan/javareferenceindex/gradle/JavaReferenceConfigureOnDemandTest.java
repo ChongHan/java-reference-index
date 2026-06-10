@@ -13,8 +13,7 @@ class JavaReferenceConfigureOnDemandTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "--sql",
-            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by source_project"
+            "-Psql=select source_project, target_project, target_path from java_references where target_kind = 'source' order by source_project"
         );
 
         assertThat(result.task(":apps:service:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -36,8 +35,7 @@ class JavaReferenceConfigureOnDemandTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "--sql",
-            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
+            "-Psql=select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
         );
 
         assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -62,8 +60,7 @@ class JavaReferenceConfigureOnDemandTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "--sql",
-            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
+            "-Psql=select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
         );
 
         assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -81,8 +78,7 @@ class JavaReferenceConfigureOnDemandTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "--sql",
-            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
+            "-Psql=select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
         );
 
         assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -100,8 +96,7 @@ class JavaReferenceConfigureOnDemandTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "--sql",
-            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
+            "-Psql=select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
         );
 
         assertThat(result.task(":app:javaReferenceIndex")).isNotNull();

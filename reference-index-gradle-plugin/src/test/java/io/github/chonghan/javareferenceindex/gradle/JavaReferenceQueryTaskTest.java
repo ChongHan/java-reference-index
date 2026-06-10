@@ -15,8 +15,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
 
         var result = gradle(
             "javaReferenceQuery",
-            "--sql",
-            "select source_path, target_kind, target_path from java_references order by source_path, target_path"
+            "-Psql=select source_path, target_kind, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -33,8 +32,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
         var result = gradle(
             "-q",
             "javaReferenceQuery",
-            "--sql",
-            "select source_path, target_kind, target_path from java_references order by source_path, target_path"
+            "-Psql=select source_path, target_kind, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -164,13 +162,26 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
     }
 
     @Test
-    void javaReferenceQuery_withMalformedSql_reportsDuckDbError() throws IOException {
+    void javaReferenceQuery_withSqlTaskOption_isRejected() throws IOException {
         copyFixture("single-project");
 
         var result = gradleAndFail(
             "javaReferenceQuery",
             "--sql",
-            "select from java_references"
+            "select 1"
+        );
+
+        assertThat(result.getOutput())
+            .contains("Unknown command-line option '--sql'");
+    }
+
+    @Test
+    void javaReferenceQuery_withMalformedSql_reportsDuckDbError() throws IOException {
+        copyFixture("single-project");
+
+        var result = gradleAndFail(
+            "javaReferenceQuery",
+            "-Psql=select from java_references"
         );
 
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.FAILED);
@@ -185,8 +196,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "--sql",
-            "select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
+            "-Psql=select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -203,8 +213,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "--sql",
-            "select source_project, source_path, target_kind, target_path from java_references order by source_path, target_path"
+            "-Psql=select source_project, source_path, target_kind, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -223,8 +232,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":empty:javaReferenceQuery",
-            "--sql",
-            "select count(*) as rows from java_references"
+            "-Psql=select count(*) as rows from java_references"
         );
 
         assertThat(result.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);

@@ -30,12 +30,6 @@ subprojects {
 Run repo-wide queries from the root project with the leading `:`:
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select * from java_references limit 20"
-```
-
-For repeated ad-hoc queries with Gradle's configuration cache, pass SQL as a Gradle property so changing only the SQL text can reuse the cached task graph:
-
-```bash
 ./gradlew -q :javaReferenceQuery -Psql="select * from java_references limit 20"
 ```
 
@@ -60,25 +54,25 @@ Per-project `javaReferenceIndex` tasks index only that project. They are mostly 
 What does this file reference?
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select target_kind, target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'"
+./gradlew -q :javaReferenceQuery -Psql="select target_kind, target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'"
 ```
 
 Who directly references this source file?
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select distinct source_project, source_path from java_references where target_kind = 'source' and target_path = 'lib/src/main/java/lib/LibraryType.java'"
+./gradlew -q :javaReferenceQuery -Psql="select distinct source_project, source_path from java_references where target_kind = 'source' and target_path = 'lib/src/main/java/lib/LibraryType.java'"
 ```
 
 Which external types does a project use?
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select distinct target_project, target_type from java_references where source_project = ':app' and target_kind = 'binary'"
+./gradlew -q :javaReferenceQuery -Psql="select distinct target_project, target_type from java_references where source_project = ':app' and target_kind = 'binary'"
 ```
 
 Which files reference a type by name?
 
 ```bash
-./gradlew -q :javaReferenceQuery --sql "select source_project, source_path, target_kind, target_project, target_path from java_references where target_type = 'lib.LibraryType'"
+./gradlew -q :javaReferenceQuery -Psql="select source_project, source_path, target_kind, target_project, target_path from java_references where target_type = 'lib.LibraryType'"
 ```
 
 ## Table Shape

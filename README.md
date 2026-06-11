@@ -75,6 +75,72 @@ Which files reference a type by name?
 ./gradlew -q :javaReferenceQuery -Psql="select source_project, source_path, target_kind, target_project, target_path from java_references where target_type = 'lib.LibraryType'"
 ```
 
+## Architecture Discovery from the Graph
+
+The CSV output can be prepared as a directed file graph before applying graph algorithms:
+
+```text
+A.java -> B.java
+```
+
+where `A.java` references a type declared in `B.java`. Multiple type references from one file to another should be collapsed into one file edge.
+
+Export production source-file edges with SQL:
+
+```bash
+./gradlew -q :javaReferenceQuery -Psql="
+select distinct
+  source_project,
+  source_path,
+  target_project,
+  target_path
+from java_references
+where target_kind = 'source'
+  and target_path <> ''
+  and source_path like '%/src/main/java/%'
+  and target_path like '%/src/main/java/%'
+" > java-reference-edges.csv
+```
+
+For monorepos, run the graph algorithm over the whole exported edge list, then report results for the subproject you care about. This keeps cross-project references in the graph while keeping the output focused.
+
+A useful standard algorithm for read-first suggestions is [HITS](https://en.wikipedia.org/wiki/HITS_algorithm), which produces two rankings:
+
+- **Hubs**: files that reference important files. These are often good entrypoint/coordinator candidates.
+- **Authorities**: files referenced by important files. These often highlight core APIs, configuration types, or shared concepts.
+
+Example result from Aeron, analyzing the whole repo graph and reporting only `:aeron-driver`:
+
+HITS hubs:
+
+```text
+1   aeron-driver/src/main/java/io/aeron/driver/DriverConductor.java
+2   aeron-driver/src/main/java/io/aeron/driver/Configuration.java
+3   aeron-driver/src/main/java/io/aeron/driver/MediaDriver.java
+4   aeron-driver/src/main/java/io/aeron/driver/NetworkPublication.java
+5   aeron-driver/src/main/java/io/aeron/driver/media/SendChannelEndpoint.java
+6   aeron-driver/src/main/java/io/aeron/driver/PublicationParams.java
+7   aeron-driver/src/main/java/io/aeron/driver/SubscriptionParams.java
+8   aeron-driver/src/main/java/io/aeron/driver/media/ReceiveChannelEndpoint.java
+9   aeron-driver/src/main/java/io/aeron/driver/IpcPublication.java
+10  aeron-driver/src/main/java/io/aeron/driver/media/UdpChannel.java
+```
+
+HITS authorities:
+
+```text
+1   aeron-driver/src/main/java/io/aeron/driver/MediaDriver.java
+2   aeron-driver/src/main/java/io/aeron/driver/Configuration.java
+3   aeron-driver/src/main/java/io/aeron/driver/ThreadingMode.java
+4   aeron-driver/src/main/java/io/aeron/driver/media/UdpChannel.java
+5   aeron-driver/src/main/java/io/aeron/driver/DutyCycleTracker.java
+6   aeron-driver/src/main/java/io/aeron/driver/status/SystemCounterDescriptor.java
+7   aeron-driver/src/main/java/io/aeron/driver/status/SystemCounters.java
+8   aeron-driver/src/main/java/io/aeron/driver/media/ReceiveChannelEndpoint.java
+9   aeron-driver/src/main/java/io/aeron/driver/ReceiveChannelEndpointSupplier.java
+10  aeron-driver/src/main/java/io/aeron/driver/SendChannelEndpointSupplier.java
+```
+
 ## Table Shape
 
 `javaReferenceQuery` exposes a DuckDB table named `java_references`.

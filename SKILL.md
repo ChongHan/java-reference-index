@@ -1,7 +1,7 @@
 ---
 name: java-reference-index
 description: Use in Gradle Java repositories with the io.github.chonghan.java-reference-index plugin. Prefer it for finding referenced source file locations, reverse references, direct blast radius, external type usage, and Java dependency context before broad text search.
-version: 0.1.7
+version: 0.1.8
 license: Apache-2.0
 compatibility: Any coding agent that can run Gradle commands and read Markdown instructions.
 metadata:

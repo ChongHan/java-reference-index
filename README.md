@@ -4,18 +4,20 @@
 
 Build a queryable Java reference map for coding agents.
 
-`java-reference-index` is a Gradle plugin that parses Java source with Eclipse JDT, resolves referenced types to source files or binary dependencies, writes per-source-set CSV indexes, and queries those indexes with DuckDB SQL.
+`java-reference-index` is a Gradle plugin that parses Java source with Eclipse JDT, resolves referenced types to source files or binary dependencies, writes CSV indexes, and queries those indexes with DuckDB SQL.
 
-The main use case is agent navigation:
+The CSV can also be collapsed into a directed file graph. Coding agents can run standard graph analysis on that graph to identify entrypoints, coordinators, core APIs, and other read-first files in large monorepos.
 
-- "What source files does this Java file reference?"
-- "Who directly references this source file?"
-- "Which external library types does this file or project use?"
-- "What should I read before changing this file?"
+Use it to answer questions such as:
+
+- What source files does this Java file reference?
+- Who directly references this source file?
+- Which external library types does this project use?
+- What files should a coding agent read first?
 
 ## Quick Start
 
-Apply the plugin to the root project and to each Java subproject that should produce an index:
+Apply the plugin to the root project and to each Java subproject that should contribute rows:
 
 ```kotlin
 plugins {
@@ -33,21 +35,21 @@ Run repo-wide queries from the root project with the leading `:`:
 ./gradlew -q :javaReferenceQuery -Psql="select * from java_references limit 20"
 ```
 
-`javaReferenceQuery` is the normal entry point. The root task depends on `:javaReferenceIndexAll`, so it builds the needed per-project CSV indexes before running SQL. You do not need to run an index task by hand before querying.
+The root `:javaReferenceQuery` task depends on `:javaReferenceIndexAll`, so it refreshes the needed CSV files before running SQL.
 
-Ask Gradle for the live schema and examples:
+Show the live task help, schema, and examples:
 
 ```bash
 ./gradlew help --task javaReferenceQuery
 ```
 
-If you only want to refresh CSV files without running SQL, use the root-only aggregate task:
+Refresh CSV files without querying:
 
 ```bash
 ./gradlew :javaReferenceIndexAll
 ```
 
-Per-project `javaReferenceIndex` tasks index only that project. They are mostly useful for focused debugging or for inspecting a single project's generated CSV files under `build/reference-index/`.
+Per-project `javaReferenceIndex` tasks index only that project and write files under `build/reference-index/`.
 
 ## Query Examples
 
@@ -75,17 +77,17 @@ Which files reference a type by name?
 ./gradlew -q :javaReferenceQuery -Psql="select source_project, source_path, target_kind, target_project, target_path from java_references where target_type = 'lib.LibraryType'"
 ```
 
-## Architecture Discovery from the Graph
+## Architecture Discovery
 
-The CSV output can be prepared as a directed file graph before applying graph algorithms:
+The CSV can be collapsed into a directed file graph:
 
 ```text
 A.java -> B.java
 ```
 
-where `A.java` references a type declared in `B.java`. Multiple type references from one file to another should be collapsed into one file edge.
+where `A.java` references one or more types declared in `B.java`.
 
-Export production source-file edges with SQL:
+Export production source-file edges:
 
 ```bash
 ./gradlew -q :javaReferenceQuery -Psql="
@@ -102,14 +104,12 @@ where target_kind = 'source'
 " > java-reference-edges.csv
 ```
 
-For monorepos, run the graph algorithm over the whole exported edge list, then report results for the subproject you care about. This keeps cross-project references in the graph while keeping the output focused.
+For monorepos, run graph algorithms on the whole exported edge list, then report results for the selected subproject. A standard choice is [HITS](https://en.wikipedia.org/wiki/HITS_algorithm):
 
-A useful standard algorithm for read-first suggestions is [HITS](https://en.wikipedia.org/wiki/HITS_algorithm), which produces two rankings:
+- **Hubs**: files that reference important files; useful entrypoint/coordinator candidates.
+- **Authorities**: files referenced by important files; useful core API or shared concept candidates.
 
-- **Hubs**: files that reference important files. These are often good entrypoint/coordinator candidates.
-- **Authorities**: files referenced by important files. These often highlight core APIs, configuration types, or shared concepts.
-
-Example result from Aeron, analyzing the whole repo graph and reporting only `:aeron-driver`:
+Example from Aeron, using the whole repo graph and reporting only `:aeron-driver`.
 
 HITS hubs:
 
@@ -149,10 +149,10 @@ HITS authorities:
 |---|---|
 | `source_project` | Gradle project path containing the referencing file |
 | `source_path` | Java source path relative to the root project |
-| `target_kind` | `source`, `binary`, or empty when unresolved |
-| `target_project` | Target Gradle project path, or dependency coordinates for binary references |
+| `target_kind` | `source`, `binary`, or empty for unresolved references |
+| `target_project` | Target Gradle project path, dependency coordinates/classpath label, or empty |
 | `target_path` | Referenced source path for source references; empty for binary and unresolved references |
-| `target_type` | Referenced Java type name |
+| `target_type` | Referenced Java type name; empty for unresolved references |
 
 Example rows:
 
@@ -162,45 +162,45 @@ source_project,source_path,target_kind,target_project,target_path,target_type
 :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList
 ```
 
-Rows are file-level reference edges. Source references to types declared in the same source file are omitted from CSV output because the caller already has that context when reading the file.
+Rows are source-file to target-type reference rows. Source references to types declared in the same source file are omitted. To build a file graph, collapse rows with `select distinct source_project, source_path, target_project, target_path ...`.
 
 ## Gradle Tasks
 
 | Task | Where | Purpose |
 |---|---|---|
-| `javaReferenceQuery` | Root and applied subprojects | Query CSV indexes with DuckDB SQL. The root `:javaReferenceQuery` is the repo-wide entry point. |
-| `javaReferenceIndexAll` | Root project only | Aggregate task that builds reference indexes for all projects with the plugin applied. |
-| `javaReferenceIndex` | Each project with the plugin applied | Builds CSV indexes for that project only. |
+| `javaReferenceQuery` | Root and applied subprojects | Query CSV indexes with DuckDB SQL. Use root `:javaReferenceQuery` for repo-wide queries. |
+| `javaReferenceIndexAll` | Root project only | Build reference indexes for all projects with the plugin applied. |
+| `javaReferenceIndex` | Each project with the plugin applied | Build CSV indexes for that project only. |
 
-Use `:javaReferenceQuery` from the root. Without the leading `:`, Gradle can run every matching `javaReferenceQuery` task in the root and subprojects.
+Use `:javaReferenceQuery` from the root. Without the leading `:`, Gradle can run every matching task in the root and subprojects.
 
 ## How It Works
 
-1. The Gradle plugin gathers Java source files, source roots, compiler settings, and resolved compile classpath entries for each source set.
-2. The core indexer batch-parses each source set with Eclipse JDT and resolves type bindings.
+1. The Gradle plugin collects Java source roots and resolved compile classpath entries for each source set.
+2. The core indexer batch-parses Java source with Eclipse JDT and resolves type bindings.
 3. Source references are recorded when the target type is available as source in the current project or a project dependency.
-4. Binary references are recorded when a type resolves to an external dependency or compiled classpath entry.
-5. CSV files are written under each project's `build/reference-index/`, then loaded into DuckDB by `javaReferenceQuery`.
+4. Binary references are recorded when the target type resolves to an external dependency or compiled classpath entry.
+5. CSV files are written under each project's `build/reference-index/` and loaded into DuckDB by `javaReferenceQuery`.
 
-Source references are preferred over binary references. If a type is available as source, the index points to the source file even if compiled classes for the same type are also on the classpath.
+Source references are preferred over binary references when both are available.
 
 ## Behavior Notes
 
-- The index is direct, not transitive. Query reverse references again if you need to walk multiple hops.
-- Project dependencies are resolved back to source roots when Gradle exposes the dependency source set or artifact output on the compile classpath.
-- External dependency rows use `group:module:version` coordinates when Gradle provides them.
-- Unresolved references are represented with an empty `target_kind`, `target_project`, `target_path`, and `target_type`.
-- JDK and common internal platform references are intentionally filtered when they are not useful source navigation targets.
+- The index is direct, not transitive.
+- Project dependencies are resolved back to source roots when Gradle exposes dependency source sets or artifact outputs on the compile classpath.
+- External dependency rows use `group:module:version` coordinates when Gradle provides them; otherwise they use a classpath label.
+- Unresolved references have empty `target_kind`, `target_project`, `target_path`, and `target_type`.
+- `java.*`, `javax.*`, `jdk.*`, `sun.*`, and `com.sun.*` references are ignored.
 - Annotation types are indexed like other binary or source references. Generated implementation types that do not exist in source may be unresolved.
-- Configure-on-demand builds are supported for the root query and aggregate tasks, but every project that should contribute rows must apply the plugin.
+- Configure-on-demand builds are supported for root query and aggregate tasks, but every project that should contribute rows must apply the plugin.
 
 ## Project Layout
 
 | Subproject | Purpose |
 |---|---|
-| `reference-index-core` | JDT parser, resolver, and in-memory model |
+| `reference-index-core` | JDT parser, resolver, and model |
 | `reference-index-csv` | CSV serialization |
-| `reference-index-gradle-plugin` | Gradle task wiring, artifact resolution, and DuckDB query support |
+| `reference-index-gradle-plugin` | Gradle tasks, artifact resolution, and DuckDB query support |
 
 ## Development
 

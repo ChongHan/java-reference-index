@@ -16,7 +16,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":,src/main/java/example/App.java,source,:,src/main/java/example/Helper.java,example.Helper"
             );
     }
@@ -30,7 +30,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":,src/main/java/example.with.dot/UsesHelper.java,source,:,src/main/java/example.with.dot/Helper.java,example.with.dot.Helper"
             );
     }
@@ -44,7 +44,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType"
             );
     }
@@ -58,7 +58,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/api/java/libapi/ArtifactType.java,libapi.ArtifactType"
             );
     }
@@ -72,7 +72,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":,src/main/java/example/App.java,source,:,src/main/java/example/Helper.java,example.Helper"
             );
     }
@@ -90,7 +90,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":unused:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType"
             );
         assertThat(projectDir.resolve("lib/build/reference-index/main-references.csv")).isRegularFile();
@@ -106,7 +106,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":,src/main/java/example/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList"
             );
     }
@@ -121,7 +121,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":,src/main/java/example/App.java,binary,org.projectlombok:lombok:1.18.32,,lombok.Builder",
                 ":,src/main/java/example/UsesBuilder.java,source,:,src/main/java/example/App.java,example.App"
             );
@@ -136,7 +136,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir, "test"))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":,src/test/java/example/MainTypeUsage.java,source,:,src/main/java/example/MainType.java,example.MainType"
             );
     }
@@ -151,7 +151,7 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(referencesCsv(projectDir, "test"))
             .containsExactly(
-                "source_project,source_path,target_kind,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,target_type",
                 ":,src/test/java/example/GeneratedTypeUsage.java,source,:,build/generated-src/example/generated/GeneratedType.java,example.generated.GeneratedType"
             );
     }

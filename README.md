@@ -56,25 +56,25 @@ Per-project `javaReferenceIndex` tasks index only that project and write files u
 What does this file reference?
 
 ```bash
-./gradlew -q :javaReferenceQuery -Psql="select target_kind, target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'"
+./gradlew -q :javaReferenceQuery -Psql="select target_origin, target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'"
 ```
 
 Who directly references this source file?
 
 ```bash
-./gradlew -q :javaReferenceQuery -Psql="select distinct source_project, source_path from java_references where target_kind = 'source' and target_path = 'lib/src/main/java/lib/LibraryType.java'"
+./gradlew -q :javaReferenceQuery -Psql="select distinct source_project, source_path from java_references where target_origin = 'source' and target_path = 'lib/src/main/java/lib/LibraryType.java'"
 ```
 
 Which external types does a project use?
 
 ```bash
-./gradlew -q :javaReferenceQuery -Psql="select distinct target_project, target_type from java_references where source_project = ':app' and target_kind = 'binary'"
+./gradlew -q :javaReferenceQuery -Psql="select distinct target_project, target_type from java_references where source_project = ':app' and target_origin = 'binary'"
 ```
 
 Which files reference a type by name?
 
 ```bash
-./gradlew -q :javaReferenceQuery -Psql="select source_project, source_path, target_kind, target_project, target_path from java_references where target_type = 'lib.LibraryType'"
+./gradlew -q :javaReferenceQuery -Psql="select source_project, source_path, target_origin, target_project, target_path from java_references where target_type = 'lib.LibraryType'"
 ```
 
 ## Architecture Discovery
@@ -97,7 +97,7 @@ select distinct
   target_project,
   target_path
 from java_references
-where target_kind = 'source'
+where target_origin = 'source'
   and target_path <> ''
   and source_path like '%/src/main/java/%'
   and target_path like '%/src/main/java/%'
@@ -149,7 +149,7 @@ HITS authorities:
 |---|---|
 | `source_project` | Gradle project path containing the referencing file |
 | `source_path` | Java source path relative to the root project |
-| `target_kind` | `source`, `binary`, or empty for unresolved references |
+| `target_origin` | `source`, `binary`, or `unresolved` |
 | `target_project` | Target Gradle project path, dependency coordinates/classpath label, or empty |
 | `target_path` | Referenced source path for source references; empty for binary and unresolved references |
 | `target_type` | Referenced Java type name; empty for unresolved references |
@@ -157,7 +157,7 @@ HITS authorities:
 Example rows:
 
 ```csv
-source_project,source_path,target_kind,target_project,target_path,target_type
+source_project,source_path,target_origin,target_project,target_path,target_type
 :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType
 :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList
 ```
@@ -189,7 +189,7 @@ Source references are preferred over binary references when both are available.
 - The index is direct, not transitive.
 - Project dependencies are resolved back to source roots when Gradle exposes dependency source sets or artifact outputs on the compile classpath.
 - External dependency rows use `group:module:version` coordinates when Gradle provides them; otherwise they use a classpath label.
-- Unresolved references have empty `target_kind`, `target_project`, `target_path`, and `target_type`.
+- Unresolved references have `target_origin` set to `unresolved` and empty `target_project`, `target_path`, and `target_type`.
 - `java.*`, `javax.*`, `jdk.*`, `sun.*`, and `com.sun.*` references are ignored.
 - Annotation types are indexed like other binary or source references. Generated implementation types that do not exist in source may be unresolved.
 - Configure-on-demand builds are supported for root query and aggregate tasks, but every project that should contribute rows must apply the plugin.

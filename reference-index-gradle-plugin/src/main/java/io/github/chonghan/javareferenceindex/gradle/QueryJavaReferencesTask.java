@@ -19,9 +19,9 @@ import org.gradle.work.DisableCachingByDefault;
 @DisableCachingByDefault(because = "The task executes interactive SQL and logs query results instead of producing cached outputs.")
 public abstract class QueryJavaReferencesTask extends DefaultTask {
     static final String TABLE_NAME = "java_references";
-    static final String SCHEMA = "source_project, source_path, target_kind, target_project, target_path, target_type";
+    static final String SCHEMA = "source_project, source_path, target_origin, target_project, target_path, target_type";
     static final String COLUMN_MEANING =
-        "source_project/source_path identify the referencing file; target_kind is source, binary, or empty; "
+        "source_project/source_path identify the referencing file; target_origin is source, binary, or unresolved; "
             + "target_project is the target Gradle project path or library coordinate; "
             + "target_path is the referenced source path for source references and empty for binary references; "
             + "target_type is the referenced Java type name";
@@ -87,7 +87,7 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
                     CREATE TABLE java_references (
                         source_project VARCHAR,
                         source_path VARCHAR,
-                        target_kind VARCHAR,
+                        target_origin VARCHAR,
                         target_project VARCHAR,
                         target_path VARCHAR,
                         target_type VARCHAR

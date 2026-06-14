@@ -28,7 +28,7 @@ The root `:javaReferenceQuery` task builds required indexes automatically throug
 Use `java_references` columns:
 
 - `source_project`, `source_path`: referencing project and file
-- `target_kind`: `source`, `binary`, or empty when unresolved
+- `target_origin`: `source`, `binary`, or `unresolved`
 - `target_project`: target Gradle project path or binary dependency coordinates
 - `target_path`: referenced source path for `source` rows; empty otherwise
 - `target_type`: referenced Java type name
@@ -41,7 +41,7 @@ Find source files referenced by a file:
 select target_project, target_path, target_type
 from java_references
 where source_path = 'path/to/File.java'
-  and target_kind = 'source'
+  and target_origin = 'source'
 order by target_project, target_path, target_type
 ```
 
@@ -50,7 +50,7 @@ Find files that directly reference a source file:
 ```sql
 select distinct source_project, source_path
 from java_references
-where target_kind = 'source'
+where target_origin = 'source'
   and target_path = 'path/to/Target.java'
 order by source_project, source_path
 ```
@@ -61,14 +61,14 @@ Find binary dependencies or external types used by a file:
 select distinct target_project, target_type
 from java_references
 where source_path = 'path/to/File.java'
-  and target_kind = 'binary'
+  and target_origin = 'binary'
 order by target_project, target_type
 ```
 
 Find references to a known type:
 
 ```sql
-select source_project, source_path, target_kind, target_project, target_path
+select source_project, source_path, target_origin, target_project, target_path
 from java_references
 where target_type = 'com.example.TypeName'
 order by source_project, source_path

@@ -41,7 +41,7 @@ class PublishedPluginTest {
         Path csv = project.resolve("build/reference-index/main-references.csv");
         assertThat(csv).isRegularFile();
         assertThat(Files.readAllLines(csv))
-            .contains("source_project,source_path,target_kind,target_project,target")
+            .contains("source_project,source_path,target_origin,target_project,target")
             .contains(":,src/main/java/app/App.java,source,:,src/main/java/lib/LibraryType.java");
     }
 

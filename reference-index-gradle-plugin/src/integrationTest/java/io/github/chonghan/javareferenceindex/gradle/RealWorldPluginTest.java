@@ -44,13 +44,13 @@ class RealWorldPluginTest {
             .anySatisfy(row -> {
                 assertThat(row.sourceProject()).isEqualTo(":agrona-agent");
                 assertThat(row.sourcePath()).startsWith("agrona-agent/src/main/java/");
-                assertThat(row.targetKind()).isEqualTo("source");
+                assertThat(row.targetOrigin()).isEqualTo("source");
                 assertThat(row.targetProject()).isEqualTo(":agrona");
                 assertThat(row.targetPath()).startsWith("agrona/src/main/java/");
             })
             .anySatisfy(row -> {
                 assertThat(row.sourceProject()).isEqualTo(":agrona-agent");
-                assertThat(row.targetKind()).isEqualTo("binary");
+                assertThat(row.targetOrigin()).isEqualTo("binary");
                 assertThat(row.targetProject()).isEqualTo("net.bytebuddy:byte-buddy:1.18.8");
                 assertThat(row.targetPath()).isEmpty();
                 assertThat(row.targetType()).isEqualTo("net.bytebuddy.agent.builder.AgentBuilder");
@@ -73,7 +73,7 @@ class RealWorldPluginTest {
         assertThat(aeronClientRows)
             .anySatisfy(row -> {
                 assertThat(row.sourceProject()).isEqualTo(":aeron-client");
-                assertThat(row.targetKind()).isEqualTo("binary");
+                assertThat(row.targetOrigin()).isEqualTo("binary");
                 assertThat(row.targetProject()).startsWith("org.agrona:agrona:");
                 assertThat(row.targetPath()).isEmpty();
                 assertThat(row.targetType()).startsWith("org.agrona.");
@@ -84,7 +84,7 @@ class RealWorldPluginTest {
         assertThat(aeronArchiveRows)
             .anySatisfy(row -> {
                 assertThat(row.sourceProject()).isEqualTo(":aeron-archive");
-                assertThat(row.targetKind()).isEqualTo("source");
+                assertThat(row.targetOrigin()).isEqualTo("source");
                 assertThat(row.targetProject()).isEqualTo(":aeron-client");
                 assertThat(row.targetPath()).startsWith("aeron-client/src/main/java/");
             });
@@ -151,24 +151,24 @@ class RealWorldPluginTest {
         assertThat(lines)
             .isNotEmpty()
             .first()
-            .isEqualTo("source_project,source_path,target_kind,target_project,target_path,target_type");
+            .isEqualTo("source_project,source_path,target_origin,target_project,target_path,target_type");
         assertThat(lines).hasSizeGreaterThan(1);
 
         List<CsvRow> rows = lines.stream()
             .skip(1)
             .map(RealWorldPluginTest::parseCsvRow)
             .toList();
-        assertThat(rows).anyMatch(row -> "source".equals(row.targetKind()));
+        assertThat(rows).anyMatch(row -> "source".equals(row.targetOrigin()));
 
         rows.stream()
             .limit(100)
             .forEach(row -> {
                 assertThat(projectRoot.resolve(row.sourcePath())).isRegularFile();
-                if ("source".equals(row.targetKind())) {
+                if ("source".equals(row.targetOrigin())) {
                     assertThat(row.targetProject()).isNotBlank();
                     assertThat(projectRoot.resolve(row.targetPath())).isRegularFile();
                     assertThat(row.targetType()).isNotBlank();
-                } else if ("binary".equals(row.targetKind())) {
+                } else if ("binary".equals(row.targetOrigin())) {
                     assertThat(row.targetProject()).isNotBlank();
                     assertThat(row.targetPath()).isEmpty();
                     assertThat(row.targetType()).isNotBlank();
@@ -217,7 +217,7 @@ class RealWorldPluginTest {
     private record CsvRow(
         String sourceProject,
         String sourcePath,
-        String targetKind,
+        String targetOrigin,
         String targetProject,
         String targetPath,
         String targetType

@@ -15,13 +15,13 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
 
         var result = gradle(
             "javaReferenceQuery",
-            "-Psql=select source_path, target_kind, target_path from java_references order by source_path, target_path"
+            "-Psql=select source_path, target_origin, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
-            .contains("source_path,target_kind,target_path")
+            .contains("source_path,target_origin,target_path")
             .contains("src/main/java/example/App.java,source,src/main/java/example/Helper.java");
     }
 
@@ -32,12 +32,12 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
         var result = gradle(
             "-q",
             "javaReferenceQuery",
-            "-Psql=select source_path, target_kind, target_path from java_references order by source_path, target_path"
+            "-Psql=select source_path, target_origin, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput()).isEqualTo("""
-            source_path,target_kind,target_path
+            source_path,target_origin,target_path
             src/main/java/example/App.java,source,src/main/java/example/Helper.java
             """);
     }
@@ -49,12 +49,12 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
         var result = gradle(
             "-q",
             "javaReferenceQuery",
-            "-Psql=select source_path, target_kind, target_path from java_references order by source_path, target_path"
+            "-Psql=select source_path, target_origin, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput()).isEqualTo("""
-            source_path,target_kind,target_path
+            source_path,target_origin,target_path
             src/main/java/example/App.java,source,src/main/java/example/Helper.java
             """);
     }
@@ -158,7 +158,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
             .contains("source_path,target_path")
             .doesNotContain("src/main/java/example/App.java,src/main/java/example/Helper.java");
         assertThat(referencesCsv(projectDir))
-            .containsExactly("source_project,source_path,target_kind,target_project,target_path,target_type");
+            .containsExactly("source_project,source_path,target_origin,target_project,target_path,target_type");
     }
 
     @Test
@@ -196,7 +196,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "-Psql=select source_project, target_project, target_path from java_references where target_kind = 'source' order by target_path"
+            "-Psql=select source_project, target_project, target_path from java_references where target_origin = 'source' order by target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -213,7 +213,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
 
         var result = gradle(
             ":javaReferenceQuery",
-            "-Psql=select source_project, source_path, target_kind, target_path from java_references order by source_path, target_path"
+            "-Psql=select source_project, source_path, target_origin, target_path from java_references order by source_path, target_path"
         );
 
         assertThat(result.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
@@ -221,7 +221,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
-            .contains("source_project,source_path,target_kind,target_path")
+            .contains("source_project,source_path,target_origin,target_path")
             .contains(":app,app/src/main/java/app/App.java,source,app/src/main/java/app/Helper.java");
         assertThat(projectDir.resolve("empty/build/reference-index/main-references.csv")).doesNotExist();
     }

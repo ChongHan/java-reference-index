@@ -29,7 +29,7 @@ class JavaReferenceNoSourcesBuildCacheTest extends GradlePluginTestKit {
         Files.writeString(
             existingCsv,
             """
-            source_project,source_path,target_kind,target_project,target_path,target_type
+            source_project,source_path,target_origin,target_project,target_path,target_type
             :empty,empty/src/main/java/example/App.java,source,:empty,empty/src/main/java/example/Helper.java,example.Helper
             """
         );

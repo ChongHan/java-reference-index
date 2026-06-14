@@ -13,7 +13,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
     private static final String[] HEADER = {
         "source_project",
         "source_path",
-        "target_kind",
+        "target_origin",
         "target_project",
         "target_path",
         "target_type"
@@ -58,7 +58,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
             }
 
             for (var ignored : file.unresolvedReferences()) {
-                rows.add(new CsvReferenceRow(sourceProject, sourcePath, "", "", "", ""));
+                rows.add(new CsvReferenceRow(sourceProject, sourcePath, "unresolved", "", "", ""));
             }
         }
 
@@ -69,7 +69,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
                     writer,
                     row.sourceProject(),
                     row.sourcePath(),
-                    row.targetKind(),
+                    row.targetOrigin(),
                     row.targetProject(),
                     row.targetPath(),
                     row.targetType()
@@ -119,7 +119,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
     private record CsvReferenceRow(
         String sourceProject,
         String sourcePath,
-        String targetKind,
+        String targetOrigin,
         String targetProject,
         String targetPath,
         String targetType

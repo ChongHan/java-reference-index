@@ -21,7 +21,7 @@ Apply the plugin to the root project and to each Java subproject that should con
 
 ```kotlin
 plugins {
-    id("io.github.chonghan.java-reference-index") version "0.1.8"
+    id("io.github.chonghan.java-reference-index") version "0.1.9"
 }
 
 subprojects {

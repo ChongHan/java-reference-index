@@ -33,7 +33,7 @@ class JavaReferenceRelocatableBuildCacheTest extends GradlePluginTestKit {
         assertThat(secondResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
         assertThat(referencesCsv(secondProject))
             .containsExactly(
-                "source_project,source_path,target_origin,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
                 ":,src/main/java/example/App.java,source,:,src/main/java/example/Helper.java,example.Helper"
             );
     }

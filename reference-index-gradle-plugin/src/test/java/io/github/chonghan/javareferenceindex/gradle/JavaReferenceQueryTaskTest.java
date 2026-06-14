@@ -158,7 +158,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
             .contains("source_path,target_path")
             .doesNotContain("src/main/java/example/App.java,src/main/java/example/Helper.java");
         assertThat(referencesCsv(projectDir))
-            .containsExactly("source_project,source_path,target_origin,target_project,target_path,target_type");
+            .containsExactly("source_project,source_path,target_origin,target_project,target_path,reference_symbol");
     }
 
     @Test

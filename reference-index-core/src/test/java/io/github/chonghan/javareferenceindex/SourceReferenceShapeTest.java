@@ -132,7 +132,7 @@ class SourceReferenceShapeTest {
     }
 
     @Test
-    void index_withOuterAndNestedClassReferences_recordsEachTargetTypeOnce() {
+    void index_withOuterAndNestedClassReferences_recordsEachReferenceSymbolOnce() {
         Path sourceRoot = fixtureSourceRoot("source-reference-shape-nested-class");
         Path sourceFile = sourceRoot.resolve("example/UsesNestedClass.java");
 

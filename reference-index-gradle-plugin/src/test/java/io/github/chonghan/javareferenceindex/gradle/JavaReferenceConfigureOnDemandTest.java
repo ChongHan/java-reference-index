@@ -24,7 +24,7 @@ class JavaReferenceConfigureOnDemandTest extends GradlePluginTestKit {
             .contains(":apps:service,:libs:shared,libs/shared/src/main/java/shared/SharedType.java");
         assertThat(referencesCsv(projectDir.resolve("apps/service")))
             .containsExactly(
-                "source_project,source_path,target_origin,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
                 ":apps:service,apps/service/src/main/java/service/App.java,source,:libs:shared,libs/shared/src/main/java/shared/SharedType.java,shared.SharedType"
             );
     }
@@ -48,7 +48,7 @@ class JavaReferenceConfigureOnDemandTest extends GradlePluginTestKit {
         assertThat(projectDir.resolve("lib/build/reference-index/main-references.csv")).isRegularFile();
         assertThat(referencesCsv(projectDir.resolve("app")))
             .containsExactly(
-                "source_project,source_path,target_origin,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType"
             );
     }

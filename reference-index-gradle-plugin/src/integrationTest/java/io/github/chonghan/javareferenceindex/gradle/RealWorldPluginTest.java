@@ -53,7 +53,7 @@ class RealWorldPluginTest {
                 assertThat(row.targetOrigin()).isEqualTo("binary");
                 assertThat(row.targetProject()).isEqualTo("net.bytebuddy:byte-buddy:1.18.8");
                 assertThat(row.targetPath()).isEmpty();
-                assertThat(row.targetType()).isEqualTo("net.bytebuddy.agent.builder.AgentBuilder");
+                assertThat(row.referenceSymbol()).isEqualTo("net.bytebuddy.agent.builder.AgentBuilder");
             });
     }
 
@@ -76,7 +76,7 @@ class RealWorldPluginTest {
                 assertThat(row.targetOrigin()).isEqualTo("binary");
                 assertThat(row.targetProject()).startsWith("org.agrona:agrona:");
                 assertThat(row.targetPath()).isEmpty();
-                assertThat(row.targetType()).startsWith("org.agrona.");
+                assertThat(row.referenceSymbol()).startsWith("org.agrona.");
             });
 
         Path aeronArchiveCsv = aeron.resolve("aeron-archive/build/reference-index/main-references.csv");
@@ -151,7 +151,7 @@ class RealWorldPluginTest {
         assertThat(lines)
             .isNotEmpty()
             .first()
-            .isEqualTo("source_project,source_path,target_origin,target_project,target_path,target_type");
+            .isEqualTo("source_project,source_path,target_origin,target_project,target_path,reference_symbol");
         assertThat(lines).hasSizeGreaterThan(1);
 
         List<CsvRow> rows = lines.stream()
@@ -167,11 +167,11 @@ class RealWorldPluginTest {
                 if ("source".equals(row.targetOrigin())) {
                     assertThat(row.targetProject()).isNotBlank();
                     assertThat(projectRoot.resolve(row.targetPath())).isRegularFile();
-                    assertThat(row.targetType()).isNotBlank();
+                    assertThat(row.referenceSymbol()).isNotBlank();
                 } else if ("binary".equals(row.targetOrigin())) {
                     assertThat(row.targetProject()).isNotBlank();
                     assertThat(row.targetPath()).isEmpty();
-                    assertThat(row.targetType()).isNotBlank();
+                    assertThat(row.referenceSymbol()).isNotBlank();
                 }
             });
         return rows;
@@ -220,6 +220,6 @@ class RealWorldPluginTest {
         String targetOrigin,
         String targetProject,
         String targetPath,
-        String targetType
+        String referenceSymbol
     ) {}
 }

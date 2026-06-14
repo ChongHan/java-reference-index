@@ -17,11 +17,11 @@ class JavaReferenceHelpTaskTest extends GradlePluginTestKit {
         assertThat(result.getOutput())
             .contains("Query Java reference edges with DuckDB SQL.")
             .contains("Table: java_references")
-            .contains("Schema: source_project, source_path, target_origin, target_project, target_path, target_type")
+            .contains("Schema: source_project, source_path, target_origin, target_project, target_path, reference_symbol")
             .contains("Columns: source_project/source_path identify the referencing file; target_origin is source, binary, or unresolved;")
             .contains("target_project is the target Gradle project path or library coordinate;")
             .contains("target_path is the referenced source path for source references and empty for binary references")
-            .contains("target_type is the referenced Java type name")
+            .contains("reference_symbol is the referenced Java symbol name")
             .contains("Source row: :app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType")
             .contains("Binary row: :app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.DirectBuffer")
             .contains("Use -q for clean query output without Gradle task noise.")
@@ -29,7 +29,7 @@ class JavaReferenceHelpTaskTest extends GradlePluginTestKit {
             .contains("Repo-wide query from root: ./gradlew -q :javaReferenceQuery -Psql=\"select * from java_references limit 20\"")
             .contains("Root query depends on :javaReferenceIndexAll, the root-only aggregate index task.")
             .contains("Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.")
-            .contains("What this file references: ./gradlew -q :javaReferenceQuery -Psql=\"select target_project, target_path, target_type from java_references where source_path = 'app/src/main/java/app/App.java'\"")
+            .contains("What this file references: ./gradlew -q :javaReferenceQuery -Psql=\"select target_project, target_path, reference_symbol from java_references where source_path = 'app/src/main/java/app/App.java'\"")
             .contains("Who references this file: ./gradlew -q :javaReferenceQuery -Psql=\"select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'\"")
             .doesNotContain("--sql");
     }

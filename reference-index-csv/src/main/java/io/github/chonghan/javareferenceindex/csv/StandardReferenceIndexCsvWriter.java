@@ -16,7 +16,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
         "target_origin",
         "target_project",
         "target_path",
-        "target_type"
+        "reference_symbol"
     };
 
     @Override
@@ -53,7 +53,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
                     "binary",
                     reference.targetProject(),
                     "",
-                    reference.targetType()
+                    reference.referenceSymbol()
                 ));
             }
 
@@ -72,7 +72,7 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
                     row.targetOrigin(),
                     row.targetProject(),
                     row.targetPath(),
-                    row.targetType()
+                    row.referenceSymbol()
                 );
             }
         }
@@ -122,6 +122,6 @@ final class StandardReferenceIndexCsvWriter implements ReferenceIndexCsvWriter {
         String targetOrigin,
         String targetProject,
         String targetPath,
-        String targetType
+        String referenceSymbol
     ) {}
 }

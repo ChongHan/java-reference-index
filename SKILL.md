@@ -31,18 +31,18 @@ Use `java_references` columns:
 - `target_origin`: `source`, `binary`, or `unresolved`
 - `target_project`: target Gradle project path or binary dependency coordinates
 - `target_path`: referenced source path for `source` rows; empty otherwise
-- `target_type`: referenced Java type name
+- `reference_symbol`: referenced Java symbol name
 
 Use these queries first.
 
 Find source files referenced by a file:
 
 ```sql
-select target_project, target_path, target_type
+select target_project, target_path, reference_symbol
 from java_references
 where source_path = 'path/to/File.java'
   and target_origin = 'source'
-order by target_project, target_path, target_type
+order by target_project, target_path, reference_symbol
 ```
 
 Find files that directly reference a source file:
@@ -58,26 +58,26 @@ order by source_project, source_path
 Find binary dependencies or external types used by a file:
 
 ```sql
-select distinct target_project, target_type
+select distinct target_project, reference_symbol
 from java_references
 where source_path = 'path/to/File.java'
   and target_origin = 'binary'
-order by target_project, target_type
+order by target_project, reference_symbol
 ```
 
-Find references to a known type:
+Find references to a known symbol:
 
 ```sql
 select source_project, source_path, target_origin, target_project, target_path
 from java_references
-where target_type = 'com.example.TypeName'
+where reference_symbol = 'com.example.TypeName'
 order by source_project, source_path
 ```
 
 Rules:
 
 - Use `:javaReferenceQuery` before broad `rg` searches for Java source-reference questions.
-- Report exact `source_project`, `source_path`, `target_project`, `target_path`, and `target_type` values that answer the question.
+- Report exact `source_project`, `source_path`, `target_project`, `target_path`, and `reference_symbol` values that answer the question.
 - Treat results as direct references only. Do not claim transitive impact unless you run additional queries.
 - Same-file source references are omitted from CSV output; read the file for inner classes and local declarations.
 - If the Gradle task is unavailable or fails, say so briefly and fall back to normal repository inspection.

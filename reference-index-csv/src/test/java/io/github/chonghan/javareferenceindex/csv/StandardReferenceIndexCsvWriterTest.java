@@ -54,7 +54,7 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_origin,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
                 ":apps:service-a,apps/service-a/src/main/java/app/App.java,source,:libs:shared,libs/shared/src/main/java/shared/LibraryType.java,shared.LibraryType",
                 ":apps:service-a,apps/service-a/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList",
                 ":apps:service-a,apps/service-a/src/main/java/app/App.java,unresolved,,,"
@@ -77,7 +77,7 @@ class StandardReferenceIndexCsvWriterTest {
         writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
 
         assertThat(Files.readAllLines(outputFile))
-            .containsExactly("source_project,source_path,target_origin,target_project,target_path,target_type");
+            .containsExactly("source_project,source_path,target_origin,target_project,target_path,reference_symbol");
     }
 
     @Test
@@ -102,11 +102,11 @@ class StandardReferenceIndexCsvWriterTest {
         writer.write(index, new CsvReferenceIndexWriteRequest(outputFile, tempDir));
 
         assertThat(Files.readAllLines(outputFile))
-            .containsExactly("source_project,source_path,target_origin,target_project,target_path,target_type");
+            .containsExactly("source_project,source_path,target_origin,target_project,target_path,reference_symbol");
     }
 
     @Test
-    void write_withDuplicateReferences_writesEachDistinctTargetTypeOnce() throws IOException {
+    void write_withDuplicateReferences_writesEachDistinctReferenceSymbolOnce() throws IOException {
         ProjectCoordinates app = new ProjectCoordinates(":app");
         ProjectCoordinates lib = new ProjectCoordinates(":lib");
         SourceSetCoordinates main = new SourceSetCoordinates("main");
@@ -140,7 +140,7 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_origin,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType",
                 ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType.Nested",
                 ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.collections.IntArrayList",
@@ -174,7 +174,7 @@ class StandardReferenceIndexCsvWriterTest {
 
         assertThat(Files.readAllLines(outputFile))
             .containsExactly(
-                "source_project,source_path,target_origin,target_project,target_path,target_type",
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
                 ":app,app/src/main/java/app/App.java,binary,\"example:quoted,\"\"dependency\"\":1.0\",,example.Binary"
             );
     }

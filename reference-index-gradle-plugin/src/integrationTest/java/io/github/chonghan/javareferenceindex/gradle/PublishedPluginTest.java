@@ -26,23 +26,27 @@ class PublishedPluginTest {
         try {
             result = GradleRunner.create()
                 .withProjectDir(project.toFile())
-                .withArguments("--stacktrace", "indexJavaReferences")
+                .withArguments("--stacktrace", "javaReferenceIndex")
                 .build();
         } catch (UnexpectedBuildFailure failure) {
             Assumptions.assumeFalse(
-                failure.getMessage().contains("Plugin [id: 'io.github.chonghan.java-reference-index', version: '0.1.0'] was not found"),
-                "Published plugin io.github.chonghan.java-reference-index:0.1.0 is not visible from the Gradle Plugin Portal yet"
+                failure.getMessage().contains("Plugin [id: 'io.github.chonghan.java-reference-index', version: '0.1.8'] was not found"),
+                "Published plugin io.github.chonghan.java-reference-index:0.1.8 is not visible from the Gradle Plugin Portal yet"
             );
             throw failure;
         }
 
-        assertThat(result.task(":indexJavaReferences").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
+        assertThat(result.task(":javaReferenceIndex").getOutcome()).isIn(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE);
 
         Path csv = project.resolve("build/reference-index/main-references.csv");
         assertThat(csv).isRegularFile();
+        // Version 0.1.8 predates the current CSV schema; this test only verifies that the
+        // latest already-published plugin can still be resolved from the Plugin Portal and can
+        // index a clean Gradle project.
         assertThat(Files.readAllLines(csv))
-            .contains("source_project,source_path,target_origin,target_project,target")
-            .contains(":,src/main/java/app/App.java,source,:,src/main/java/lib/LibraryType.java");
+            .anySatisfy(line -> assertThat(line).startsWith("source_project,source_path,"))
+            .anySatisfy(line -> assertThat(line)
+                .startsWith(":,src/main/java/app/App.java,source,:,src/main/java/lib/LibraryType.java"));
     }
 
     private Path copyFixtureProject(String fixtureName) throws IOException {

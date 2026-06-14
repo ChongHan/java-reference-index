@@ -22,11 +22,25 @@ import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 
+/**
+ * Gradle plugin that registers Java reference indexing and query tasks.
+ */
 public class JavaReferenceIndexPlugin implements Plugin<Project> {
     static final String INDEX_TASK_NAME = "javaReferenceIndex";
     static final String INDEX_ALL_TASK_NAME = "javaReferenceIndexAll";
     static final String QUERY_TASK_NAME = "javaReferenceQuery";
 
+    /**
+     * Creates the Java reference index plugin.
+     */
+    public JavaReferenceIndexPlugin() {
+    }
+
+    /**
+     * Registers Java reference index tasks for the supplied project.
+     *
+     * @param project project to configure
+     */
     @Override
     public void apply(Project project) {
         var taskProvider = indexTask(project);

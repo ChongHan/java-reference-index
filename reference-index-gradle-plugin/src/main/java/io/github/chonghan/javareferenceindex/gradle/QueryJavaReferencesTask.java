@@ -16,6 +16,9 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
+/**
+ * Gradle task that queries generated Java reference CSV files with DuckDB SQL.
+ */
 @DisableCachingByDefault(because = "The task executes interactive SQL and logs query results instead of producing cached outputs.")
 public abstract class QueryJavaReferencesTask extends DefaultTask {
     static final String TABLE_NAME = "java_references";
@@ -34,6 +37,17 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
     static final String BLAST_RADIUS_QUERY =
         "select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'";
 
+    /**
+     * Creates the Java reference query task.
+     */
+    public QueryJavaReferencesTask() {
+    }
+
+    /**
+     * Returns the Gradle provider factory used to read command-line properties.
+     *
+     * @return Gradle provider factory
+     */
     @Inject
     protected abstract ProviderFactory getProviders();
 
@@ -63,10 +77,18 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             );
     }
 
+    /**
+     * Returns generated Java reference CSV files queried by this task.
+     *
+     * @return reference index CSV files
+     */
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract ConfigurableFileCollection getReferenceIndexFiles();
 
+    /**
+     * Executes the SQL query provided by the {@code sql} Gradle property.
+     */
     @TaskAction
     public void javaReferenceQuery() {
         String querySql = effectiveSql();

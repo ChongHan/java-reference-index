@@ -31,29 +31,63 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
+/**
+ * Gradle task that indexes Java source references for each configured source set.
+ */
 @CacheableTask
 public abstract class IndexJavaReferencesTask extends DefaultTask {
     private String projectPath;
     private List<SourceSetSpec> sourceSets = List.of();
 
+    /**
+     * Creates the Java reference indexing task.
+     */
+    public IndexJavaReferencesTask() {
+    }
+
+    /**
+     * Returns the Gradle project path that owns this task.
+     *
+     * @return the owning Gradle project path
+     */
     @Input
     public String getProjectPath() {
         return projectPath;
     }
 
+    /**
+     * Sets the Gradle project path that owns this task.
+     *
+     * @param projectPath the owning Gradle project path
+     */
     public void setProjectPath(String projectPath) {
         this.projectPath = projectPath;
     }
 
+    /**
+     * Returns the source sets that will be indexed.
+     *
+     * @return source set specifications for this task
+     */
     @Internal
     public List<SourceSetSpec> getSourceSets() {
         return sourceSets;
     }
 
+    /**
+     * Sets the source sets that will be indexed.
+     *
+     * @param sourceSets source set specifications for this task
+     */
     public void setSourceSets(List<SourceSetSpec> sourceSets) {
         this.sourceSets = List.copyOf(sourceSets);
     }
 
+    /**
+     * Returns stable source set configuration inputs for Gradle cache keys.
+     *
+     * @return normalized source set configuration values
+     */
     @Input
     public List<String> getSourceSetConfiguration() {
         return sourceSets.stream()
@@ -61,6 +95,11 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             .toList();
     }
 
+    /**
+     * Returns classpath target identifiers used as task inputs.
+     *
+     * @return sorted target identifiers for classpath entries
+     */
     @Input
     public List<String> getClasspathTargets() {
         return sourceSets.stream()
@@ -70,10 +109,20 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             .toList();
     }
 
+    /**
+     * Returns Java source files and source directories used by the task.
+     *
+     * @return the source input file collection
+     */
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract ConfigurableFileCollection getSourceInputFiles();
 
+    /**
+     * Returns the compile classpath files used while resolving references.
+     *
+     * @return classpath files for all configured source sets
+     */
     @Classpath
     public List<File> getClasspathInputFiles() {
         return sourceSets.stream()
@@ -83,9 +132,19 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             .toList();
     }
 
+    /**
+     * Returns the directory where reference CSV files are written.
+     *
+     * @return the output directory property
+     */
     @Internal
     public abstract DirectoryProperty getOutputDirectory();
 
+    /**
+     * Returns the expected CSV output files for the configured source sets.
+     *
+     * @return output CSV files for this task
+     */
     @OutputFiles
     public List<File> getOutputFiles() {
         return sourceSets.stream()
@@ -93,6 +152,9 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             .toList();
     }
 
+    /**
+     * Builds Java reference indexes and writes them as CSV files.
+     */
     @TaskAction
     public void javaReferenceIndex() {
         sourceSets.forEach(this::indexSourceSet);
@@ -249,6 +311,15 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
 
     private record ReferenceCounts(int sourceReferences, int binaryReferences, int unresolvedReferences) {}
 
+    /**
+     * Serializable description of one Java source set to index.
+     *
+     * @param projectPath owning Gradle project path
+     * @param sourceSetName Gradle source set name
+     * @param rootDir root directory used to normalize paths
+     * @param sourceRoots source roots visible while indexing this source set
+     * @param classpathEntries compile classpath entries visible while indexing this source set
+     */
     public record SourceSetSpec(
         String projectPath,
         String sourceSetName,
@@ -256,6 +327,15 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         List<SourceRootSpec> sourceRoots,
         List<ClasspathEntrySpec> classpathEntries
     ) implements Serializable {
+        /**
+         * Creates a source set specification with immutable nested lists.
+         *
+         * @param projectPath owning Gradle project path
+         * @param sourceSetName Gradle source set name
+         * @param rootDir root directory used to normalize paths
+         * @param sourceRoots source roots visible while indexing this source set
+         * @param classpathEntries compile classpath entries visible while indexing this source set
+         */
         public SourceSetSpec {
             sourceRoots = List.copyOf(sourceRoots);
             classpathEntries = List.copyOf(classpathEntries);
@@ -276,12 +356,25 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         }
     }
 
+    /**
+     * Serializable description of a Java source root.
+     *
+     * @param path absolute source root path
+     * @param projectPath Gradle project path that owns the source root
+     * @param sourceSetName Gradle source set name that owns the source root
+     */
     public record SourceRootSpec(String path, String projectPath, String sourceSetName) implements Serializable {
         private String cacheKey(Path rootDir) {
             return relativePath(rootDir, Path.of(path)) + "|" + projectPath + "|" + sourceSetName;
         }
     }
 
+    /**
+     * Serializable description of a compile classpath entry.
+     *
+     * @param path absolute classpath entry path
+     * @param target display target for references resolved to this classpath entry
+     */
     public record ClasspathEntrySpec(String path, String target) implements Serializable {}
 
     private static String relativePath(Path rootDir, Path path) {

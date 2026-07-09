@@ -1,6 +1,10 @@
 plugins {
     `java-library`
+    alias(libs.plugins.java.reference.index)
 }
+
+group = "io.github.chonghan"
+version = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT").get()
 
 java {
     toolchain {

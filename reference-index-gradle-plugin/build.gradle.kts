@@ -6,7 +6,11 @@ plugins {
     id("com.gradleup.nmcp")
     alias(libs.plugins.shadow)
     signing
+    alias(libs.plugins.java.reference.index)
 }
+
+group = "io.github.chonghan"
+version = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT").get()
 
 val integrationTest = sourceSets.create("integrationTest") {
     compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output + configurations.testRuntimeClasspath.get()

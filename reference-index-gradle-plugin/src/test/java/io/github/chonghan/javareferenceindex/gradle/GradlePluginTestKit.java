@@ -5,6 +5,8 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.gradle.testkit.runner.BuildResult;
@@ -32,10 +34,14 @@ abstract class GradlePluginTestKit {
     }
 
     private static GradleRunner gradleRunner(Path projectDirectory, String... arguments) {
+        List<String> isolatedProjectsArguments = new ArrayList<>(Arrays.asList(arguments));
+        isolatedProjectsArguments.add("-Dorg.gradle.unsafe.isolated-projects=true");
+        isolatedProjectsArguments.add("-Dorg.gradle.configuration-cache.problems=warn");
+
         return GradleRunner.create()
             .withProjectDir(projectDirectory.toFile())
             .withPluginClasspath()
-            .withArguments(arguments)
+            .withArguments(isolatedProjectsArguments)
             .forwardOutput();
     }
 

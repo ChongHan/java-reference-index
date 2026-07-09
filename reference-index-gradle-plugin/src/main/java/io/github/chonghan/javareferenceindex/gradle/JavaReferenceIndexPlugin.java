@@ -273,32 +273,18 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
     }
 
     private static Stream<Path> sourceSetArtifactOutputs(Project project, SourceSet sourceSet) {
-        Set<String> outputTaskNames = sourceSetOutputTaskNames(sourceSet);
         return project.getConfigurations().stream()
             .filter(Configuration::isCanBeConsumed)
             .flatMap(configuration -> configuration.getOutgoing().getArtifacts().stream())
-            .filter(artifact -> artifactBuildsSourceSet(artifact, outputTaskNames))
+            .filter(artifact -> artifactRepresentsSourceSet(artifact, sourceSet))
             .map(artifact -> normalizedPath(artifact.getFile()));
     }
 
-    private static boolean artifactBuildsSourceSet(PublishArtifact artifact, Set<String> outputTaskNames) {
-        return artifact.getBuildDependencies().getDependencies(null).stream()
-            .anyMatch(task -> taskBuildsSourceSet(task, outputTaskNames));
-    }
-
-    private static boolean taskBuildsSourceSet(Task task, Set<String> outputTaskNames) {
-        return outputTaskNames.contains(task.getName())
-            || task.getTaskDependencies().getDependencies(task).stream()
-                .map(Task::getName)
-                .anyMatch(outputTaskNames::contains);
-    }
-
-    private static Set<String> sourceSetOutputTaskNames(SourceSet sourceSet) {
-        return Set.of(
-            sourceSet.getClassesTaskName(),
-            sourceSet.getCompileJavaTaskName(),
-            sourceSet.getProcessResourcesTaskName()
-        );
+    private static boolean artifactRepresentsSourceSet(PublishArtifact artifact, SourceSet sourceSet) {
+        if (SourceSet.MAIN_SOURCE_SET_NAME.equals(sourceSet.getName())) {
+            return artifact.getClassifier() == null;
+        }
+        return sourceSet.getName().equals(artifact.getClassifier());
     }
 
     private static Stream<IndexJavaReferencesTask.SourceRootSpec> sourceRootSpecs(

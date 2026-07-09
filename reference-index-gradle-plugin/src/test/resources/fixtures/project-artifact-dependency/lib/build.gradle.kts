@@ -1,3 +1,8 @@
+plugins {
+    java
+    id("io.github.chonghan.java-reference-index")
+}
+
 val apiSourceSet = sourceSets.create("api")
 
 val apiJar by tasks.registering(Jar::class) {

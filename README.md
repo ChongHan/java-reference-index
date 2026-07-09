@@ -17,17 +17,25 @@ Use it to answer questions such as:
 
 ## Quick Start
 
-Apply the plugin to the root project and to each Java subproject that should contribute rows:
+Declare the plugin version in `settings.gradle.kts`:
+
+```kotlin
+pluginManagement {
+    plugins {
+        id("io.github.chonghan.java-reference-index") version "0.1.9"
+    }
+}
+```
+
+Apply it in the root project and in every included project so the root aggregate tasks can depend on each project's index task:
 
 ```kotlin
 plugins {
-    id("io.github.chonghan.java-reference-index") version "0.1.9"
-}
-
-subprojects {
-    apply(plugin = "io.github.chonghan.java-reference-index")
+    id("io.github.chonghan.java-reference-index")
 }
 ```
+
+With Isolated Projects enabled, apply the plugin in each project's build script or through an isolated convention plugin. Do not use a root `subprojects { ... }` block.
 
 Run repo-wide queries from the root project with the leading `:`:
 
@@ -169,7 +177,7 @@ Rows are source-file to target-type reference rows. Source references to types d
 | Task | Where | Purpose |
 |---|---|---|
 | `javaReferenceQuery` | Root and applied subprojects | Query CSV indexes with DuckDB SQL. Use root `:javaReferenceQuery` for repo-wide queries. |
-| `javaReferenceIndexAll` | Root project only | Build reference indexes for all projects with the plugin applied. |
+| `javaReferenceIndexAll` | Root project only | Build reference indexes for every included project; each must apply the plugin. |
 | `javaReferenceIndex` | Each project with the plugin applied | Build CSV indexes for that project only. |
 
 Use `:javaReferenceQuery` from the root. Without the leading `:`, Gradle can run every matching task in the root and subprojects.

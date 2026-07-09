@@ -1,6 +1,9 @@
 package io.github.chonghan.javareferenceindex.gradle;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
@@ -74,36 +77,18 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         if (!rootAggregateTaskRequested(rootProject)) {
             return;
         }
-        if (rootProject.getState().getExecuted()) {
-            evaluationDependsOnAllDescendants(rootProject);
-            configureRootAggregateTasksAfterChildrenEvaluated(rootProject, indexAllTaskProvider);
-        } else {
-            rootProject.afterEvaluate(evaluatedRoot -> {
-                evaluationDependsOnAllDescendants(evaluatedRoot);
-                configureRootAggregateTasksAfterChildrenEvaluated(evaluatedRoot, indexAllTaskProvider);
+        // Project paths and directories are immutable model state and safe to inspect with Isolated Projects.
+        rootProject.getAllprojects().stream()
+            .filter(candidate -> !candidate.equals(rootProject))
+            .forEach(candidate -> {
+                String indexTaskPath = candidate.getPath() + ":" + INDEX_TASK_NAME;
+                indexAllTaskProvider.configure(task -> task.dependsOn(indexTaskPath));
+                queryTask(rootProject).configure(task -> addReferenceIndexFiles(
+                    task,
+                    rootProject,
+                    candidate.getProjectDir().toPath().resolve("build/reference-index")
+                ));
             });
-        }
-    }
-
-    private static void evaluationDependsOnAllDescendants(Project rootProject) {
-        rootProject.getAllprojects().stream()
-            .filter(project -> !project.getChildProjects().isEmpty())
-            .forEach(Project::evaluationDependsOnChildren);
-    }
-
-    private static void configureRootAggregateTasksAfterChildrenEvaluated(
-        Project rootProject,
-        TaskProvider<?> indexAllTaskProvider
-    ) {
-        rootProject.getAllprojects().stream()
-            .filter(project -> !project.equals(rootProject))
-            .forEach(project ->
-                project.getPlugins().withType(JavaReferenceIndexPlugin.class, plugin -> {
-                    var indexTaskProvider = indexTask(project);
-                    indexAllTaskProvider.configure(task -> task.dependsOn(indexTaskProvider));
-                    queryTask(rootProject).configure(task -> addReferenceIndexFiles(task, project, indexTaskProvider));
-                })
-            );
     }
 
     private static boolean rootAggregateTaskRequested(Project project) {
@@ -157,8 +142,12 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         Project project,
         TaskProvider<IndexJavaReferencesTask> indexTaskProvider
     ) {
+        addReferenceIndexFiles(task, project, indexTaskProvider.flatMap(IndexJavaReferencesTask::getOutputDirectory));
+    }
+
+    private static void addReferenceIndexFiles(QueryJavaReferencesTask task, Project project, Object outputDirectory) {
         var referenceIndexFiles = project.fileTree(
-            indexTaskProvider.flatMap(IndexJavaReferencesTask::getOutputDirectory),
+            outputDirectory,
             fileTree -> fileTree.include("*-references.csv")
         );
         task.getReferenceIndexFiles().from(referenceIndexFiles);
@@ -211,20 +200,12 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
 
         var currentSourceRoots = sourceRootSpecs(project, sourceSet, false);
 
-        var currentProjectClasspathSourceRoots = projectSourceRoots(project, compileClasspath, false);
+        var currentProjectClasspathSourceRoots = projectSourceRoots(project, compileClasspath);
 
         var dependencySourceRoots = projectDependencyPaths(project, sourceSet).stream()
             .map(project.getRootProject()::findProject)
-            .flatMap(candidateProject -> {
-                if (candidateProject == null) {
-                    return Stream.<IndexJavaReferencesTask.SourceRootSpec>empty();
-                }
-                JavaPluginExtension java = candidateProject.getExtensions().findByType(JavaPluginExtension.class);
-                if (java == null) {
-                    return Stream.<IndexJavaReferencesTask.SourceRootSpec>empty();
-                }
-                return projectSourceRoots(candidateProject, compileClasspath, true);
-            });
+            .filter(candidateProject -> candidateProject != null)
+            .flatMap(candidateProject -> conventionalProjectSourceRoots(candidateProject, compileClasspath));
 
         return Stream.of(currentSourceRoots, currentProjectClasspathSourceRoots, dependencySourceRoots)
             .flatMap(sourceRoots -> sourceRoots)
@@ -233,10 +214,56 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
             .toList();
     }
 
+    // Dependency resolution exposes project identities but not the target project's mutable Java model
+    // under Isolated Projects, so derive conventional source roots from its immutable project directory.
+    private static Stream<IndexJavaReferencesTask.SourceRootSpec> conventionalProjectSourceRoots(
+        Project project,
+        Set<Path> compileClasspath
+    ) {
+        Path sourceDirectory = project.getProjectDir().toPath().resolve("src");
+        if (!sourceDirectory.toFile().isDirectory()) {
+            return Stream.empty();
+        }
+        try (Stream<Path> children = Files.list(sourceDirectory)) {
+            List<Path> sourceRoots = children
+                .map(sourceSetDirectory -> sourceSetDirectory.resolve("java"))
+                .filter(path -> path.toFile().isDirectory())
+                .toList();
+            List<Path> selectedRoots = sourceRoots.stream()
+                .filter(path -> sourceRootIsOnClasspath(project, path, compileClasspath))
+                .toList();
+            if (selectedRoots.isEmpty()) {
+                selectedRoots = sourceRoots.stream()
+                    .filter(path -> path.getParent().getFileName().toString().equals(SourceSet.MAIN_SOURCE_SET_NAME))
+                    .toList();
+            }
+            return selectedRoots.stream().map(path -> new IndexJavaReferencesTask.SourceRootSpec(
+                path.toAbsolutePath().normalize().toString(),
+                project.getPath(),
+                path.getParent().getFileName().toString()
+            ));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static boolean sourceRootIsOnClasspath(Project project, Path sourceRoot, Set<Path> compileClasspath) {
+        String sourceSetName = sourceRoot.getParent().getFileName().toString();
+        String projectName = project.getName();
+        return compileClasspath.stream().anyMatch(path -> {
+            String fileName = path.getFileName().toString();
+            if (SourceSet.MAIN_SOURCE_SET_NAME.equals(sourceSetName)) {
+                return fileName.equals(projectName + ".jar")
+                    || path.endsWith(Path.of("classes", "java", SourceSet.MAIN_SOURCE_SET_NAME));
+            }
+            return fileName.equals(projectName + "-" + sourceSetName + ".jar")
+                || path.endsWith(Path.of("classes", "java", sourceSetName));
+        });
+    }
+
     private static Stream<IndexJavaReferencesTask.SourceRootSpec> projectSourceRoots(
         Project project,
-        Set<Path> compileClasspath,
-        boolean includeMainFallback
+        Set<Path> compileClasspath
     ) {
         JavaPluginExtension java = project.getExtensions().findByType(JavaPluginExtension.class);
         if (java == null) {
@@ -245,16 +272,8 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         List<SourceSet> matchingSourceSets = java.getSourceSets().stream()
             .filter(candidateSourceSet -> outputIsOnClasspath(project, candidateSourceSet, compileClasspath))
             .toList();
-        if (!matchingSourceSets.isEmpty()) {
-            return matchingSourceSets.stream()
-                .flatMap(candidateSourceSet -> sourceRootSpecs(project, candidateSourceSet, true));
-        }
-        if (!includeMainFallback) {
-            return Stream.empty();
-        }
-        return java.getSourceSets().matching(candidateSourceSet -> SourceSet.MAIN_SOURCE_SET_NAME.equals(candidateSourceSet.getName()))
-            .stream()
-            .flatMap(candidateSourceSet -> sourceRootSpecs(project, candidateSourceSet, false));
+        return matchingSourceSets.stream()
+            .flatMap(candidateSourceSet -> sourceRootSpecs(project, candidateSourceSet, true));
     }
 
     private static boolean outputIsOnClasspath(Project project, SourceSet sourceSet, Set<Path> compileClasspath) {

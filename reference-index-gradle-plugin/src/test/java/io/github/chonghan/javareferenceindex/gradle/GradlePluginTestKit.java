@@ -36,7 +36,6 @@ abstract class GradlePluginTestKit {
     private static GradleRunner gradleRunner(Path projectDirectory, String... arguments) {
         List<String> isolatedProjectsArguments = new ArrayList<>(Arrays.asList(arguments));
         isolatedProjectsArguments.add("-Dorg.gradle.unsafe.isolated-projects=true");
-        isolatedProjectsArguments.add("-Dorg.gradle.configuration-cache.problems=warn");
 
         return GradleRunner.create()
             .withProjectDir(projectDirectory.toFile())

@@ -30,17 +30,25 @@ abstract class GradlePluginTestKit {
     }
 
     BuildResult gradleAndFail(Path projectDirectory, String... arguments) {
-        return gradleRunner(projectDirectory, arguments).buildAndFail();
+        return gradleRunner(projectDirectory, true, arguments).buildAndFail();
+    }
+
+    BuildResult gradleWithoutIsolatedProjects(String... arguments) {
+        return gradleRunner(projectDir, false, arguments).build();
     }
 
     private static GradleRunner gradleRunner(Path projectDirectory, String... arguments) {
-        List<String> isolatedProjectsArguments = new ArrayList<>(Arrays.asList(arguments));
-        isolatedProjectsArguments.add("-Dorg.gradle.unsafe.isolated-projects=true");
+        return gradleRunner(projectDirectory, true, arguments);
+    }
+
+    private static GradleRunner gradleRunner(Path projectDirectory, boolean isolatedProjects, String... arguments) {
+        List<String> gradleArguments = new ArrayList<>(Arrays.asList(arguments));
+        gradleArguments.add("-Dorg.gradle.unsafe.isolated-projects=" + isolatedProjects);
 
         return GradleRunner.create()
             .withProjectDir(projectDirectory.toFile())
             .withPluginClasspath()
-            .withArguments(isolatedProjectsArguments)
+            .withArguments(gradleArguments)
             .forwardOutput();
     }
 

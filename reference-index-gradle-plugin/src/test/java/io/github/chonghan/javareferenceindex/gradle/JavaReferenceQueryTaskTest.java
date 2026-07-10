@@ -208,6 +208,29 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceQuery_fromRootProject_readsCsvFromCustomSubprojectBuildDirectory() throws IOException {
+        copyFixture("multi-project");
+        Files.writeString(
+            projectDir.resolve("app/build.gradle.kts"),
+            """
+
+            layout.buildDirectory = layout.projectDirectory.dir("../custom-build/app")
+            """,
+            StandardOpenOption.APPEND
+        );
+
+        var result = gradle(
+            ":javaReferenceQuery",
+            "-Psql=select source_project, target_project, target_path from java_references where target_origin = 'source' order by target_path"
+        );
+
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(projectDir.resolve("custom-build/app/reference-index/main-references.csv")).isRegularFile();
+        assertThat(result.getOutput())
+            .contains(":app,:lib,lib/src/main/java/lib/LibraryType.java");
+    }
+
+    @Test
     void javaReferenceQuery_withSubprojectWithoutJavaSources_queriesAvailableCsvFiles() throws IOException {
         copyFixture("subproject-without-java-sources");
 

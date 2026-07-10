@@ -8,6 +8,23 @@ import org.junit.jupiter.api.Test;
 
 class JavaReferenceConfigureOnDemandTest extends GradlePluginTestKit {
     @Test
+    void javaReferenceQuery_withConfigureOnDemandAndWithoutIsolatedProjects_indexesSubprojects() throws IOException {
+        copyFixture("multi-project");
+
+        var result = gradleWithoutIsolatedProjects(
+            ":javaReferenceQuery",
+            "-Psql=select source_project, target_project, target_path from java_references where target_origin = 'source' order by target_path",
+            "--configuration-cache"
+        );
+
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":lib:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput())
+            .contains(":app,:lib,lib/src/main/java/lib/LibraryType.java");
+    }
+
+    @Test
     void javaReferenceQuery_fromRootProjectWithNestedSubprojects_queriesNestedSubprojectCsvFiles() throws IOException {
         copyFixture("nested-subprojects");
 

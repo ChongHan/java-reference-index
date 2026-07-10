@@ -3,6 +3,8 @@ package io.github.chonghan.javareferenceindex.gradle;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.Test;
 
@@ -50,8 +52,59 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceIndex_withProjectDependencyUsingCustomSourceDirectory_writesSourceReference() throws IOException {
+        copyFixture("multi-project");
+        var customSource = projectDir.resolve("lib/custom-sources/lib/LibraryType.java");
+        Files.createDirectories(customSource.getParent());
+        Files.move(projectDir.resolve("lib/src/main/java/lib/LibraryType.java"), customSource);
+        Files.writeString(
+            projectDir.resolve("lib/build.gradle.kts"),
+            """
+
+            sourceSets.named("main") {
+                java.setSrcDirs(listOf("custom-sources"))
+            }
+            """,
+            StandardOpenOption.APPEND
+        );
+
+        var result = gradle(":app:javaReferenceIndex");
+
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir.resolve("app")))
+            .containsExactly(
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/custom-sources/lib/LibraryType.java,lib.LibraryType"
+            );
+    }
+
+    @Test
     void javaReferenceIndex_withProjectArtifactDependency_writesArtifactSourceReference() throws IOException {
         copyFixture("project-artifact-dependency");
+
+        var result = gradle(":app:javaReferenceIndex");
+
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir.resolve("app")))
+            .containsExactly(
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/api/java/libapi/ArtifactType.java,libapi.ArtifactType"
+            );
+    }
+
+    @Test
+    void javaReferenceIndex_withRenamedProjectArtifact_writesArtifactSourceReference() throws IOException {
+        copyFixture("project-artifact-dependency");
+        Files.writeString(
+            projectDir.resolve("lib/build.gradle.kts"),
+            """
+
+            apiJar.configure {
+                archiveFileName.set("public-api.jar")
+            }
+            """,
+            StandardOpenOption.APPEND
+        );
 
         var result = gradle(":app:javaReferenceIndex");
 
@@ -95,6 +148,31 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
             );
         assertThat(projectDir.resolve("lib/build/reference-index/main-references.csv")).isRegularFile();
         assertThat(projectDir.resolve("aaa-unused/build/reference-index/main-references.csv")).isRegularFile();
+    }
+
+    @Test
+    void javaReferenceIndexAll_whenReachedThroughLifecycleTask_indexesAllSubprojects() throws IOException {
+        copyFixture("multi-project");
+        Files.writeString(
+            projectDir.resolve("build.gradle.kts"),
+            """
+
+            tasks.register("aggregateReferenceIndex") {
+                dependsOn("javaReferenceIndexAll")
+            }
+            """,
+            StandardOpenOption.APPEND
+        );
+
+        var result = gradle("aggregateReferenceIndex");
+
+        assertThat(result.task(":javaReferenceIndexAll").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":app:javaReferenceIndex")).isNotNull();
+        assertThat(result.task(":lib:javaReferenceIndex")).isNotNull();
+        assertThat(result.task(":unused:javaReferenceIndex")).isNotNull();
+        assertThat(result.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":lib:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":unused:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
     }
 
     @Test

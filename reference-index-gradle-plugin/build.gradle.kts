@@ -57,9 +57,11 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
+// TestKit builds launch nested Gradle workers and share a TestKit cache. Multiple test
+// JVMs contend for that cache and use more CPU while taking longer than one warm JVM.
 val testMaxParallelForks = providers.gradleProperty("javaReferenceIndex.test.maxParallelForks")
     .map { it.toInt().coerceAtLeast(1) }
-    .getOrElse(minOf(4, Runtime.getRuntime().availableProcessors()))
+    .getOrElse(1)
 
 tasks.test {
     useJUnitPlatform()

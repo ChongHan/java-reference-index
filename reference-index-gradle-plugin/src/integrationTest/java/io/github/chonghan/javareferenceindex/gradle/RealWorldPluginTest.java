@@ -125,11 +125,12 @@ class RealWorldPluginTest {
         environment.put("BUILD_JAVA_HOME", System.getProperty("java.home"));
         deleteIfExists(project.resolve(".gradle/configuration-cache"));
 
+        // Do not use --rerun-tasks here: changes to the plugin implementation already
+        // invalidate its tasks, while that flag needlessly recompiles every real-world project.
         List<String> arguments = new ArrayList<>(List.of(
                 "--init-script", initScript.toString(),
                 "--configure-on-demand",
-                "--no-parallel",
-                "--rerun-tasks",
+                "--parallel",
                 "--quiet",
                 "--stacktrace",
                 ":javaReferenceIndexAll"

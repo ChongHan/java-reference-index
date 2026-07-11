@@ -1,13 +1,13 @@
 [versions]
 agrona = "2.4.1"
 assertj = "3.27.7"
-duckdb-jdbc = "1.5.2.0"
-eclipse-jdt-core = "3.45.0"
+duckdb-jdbc = "1.5.4.0"
+eclipse-jdt-core = "3.46.0"
 gradle-plugin-publish = "2.1.1"
 java-reference-index = "0.1.8"
-junit = "6.0.3"
-nmcp = "1.4.4"
-shadow = "9.3.2"
+junit = "6.1.1"
+nmcp = "1.6.1"
+shadow = "9.5.1"
 
 [libraries]
 agrona = { module = "org.agrona:agrona", version.ref = "agrona" }

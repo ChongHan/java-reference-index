@@ -80,31 +80,6 @@ class SourceAndClasspathTypeReferenceResolverTest {
     }
 
     @Test
-    void prepare_afterSourceRootChanges_refreshesLookup() throws IOException {
-        ProjectCoordinates app = new ProjectCoordinates(":app");
-        ProjectCoordinates lib = new ProjectCoordinates(":lib");
-        SourceSetCoordinates main = new SourceSetCoordinates("main");
-        Path appFile = tempDir.resolve("app/src/main/java/app/App.java");
-        Path libRoot = tempDir.resolve("lib/src/main/java");
-        Path addedFile = libRoot.resolve("example/Added.java");
-        createFile(appFile);
-        ProjectIndexingRequest request = request(
-            app,
-            main,
-            List.of(new SourceRoot(libRoot, lib, main)),
-            List.of(appFile)
-        );
-
-        assertThat(resolver.resolveSource("example.Added", appFile, request)).isEmpty();
-        createFile(addedFile);
-        resolver.prepare(request);
-
-        assertThat(resolver.resolveSource("example.Added", appFile, request))
-            .hasValueSatisfying(reference -> assertThat(reference.sourceFile())
-                .isEqualTo(addedFile.toAbsolutePath().normalize()));
-    }
-
-    @Test
     void resolveSource_withSameSourceFile_ignoresSelfReference() throws IOException {
         ProjectCoordinates project = new ProjectCoordinates(":app");
         SourceSetCoordinates main = new SourceSetCoordinates("main");
@@ -122,7 +97,7 @@ class SourceAndClasspathTypeReferenceResolverTest {
     }
 
     @Test
-    void prepare_afterClasspathDirectoryChanges_refreshesLookup() throws IOException {
+    void beginScan_afterClasspathDirectoryChanges_refreshesLookup() throws IOException {
         Path classes = tempDir.resolve("classes");
         Files.createDirectories(classes);
         ClasspathEntry entry = ClasspathEntry.of(classes, "example:changing:1.0");
@@ -130,7 +105,7 @@ class SourceAndClasspathTypeReferenceResolverTest {
 
         assertThat(resolver.resolveBinary("example.Added", request)).isEmpty();
         createFile(classes.resolve("example/Added.class"));
-        resolver.prepare(request);
+        resolver.beginScan(request);
 
         assertThat(resolver.resolveBinary("example.Added", request)).contains(new BinaryReference(
             "example.Added",

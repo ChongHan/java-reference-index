@@ -52,7 +52,7 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
 
     @Override
     public List<FileReferenceSet> scan(ProjectIndexingRequest request) {
-        referenceResolver.prepare(request);
+        referenceResolver.beginScan(request);
         Map<Path, CompilationUnit> compilationUnits = parser.parse(request);
         return request.sourceFiles().stream()
             .map(sourceFile -> scan(sourceFile, compilationUnits.get(normalize(sourceFile)), request))
@@ -87,6 +87,7 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         private final Map<String, SourceReference> sourceReferences = new LinkedHashMap<>();
         private final Map<String, BinaryReference> binaryReferences = new LinkedHashMap<>();
         private final Map<String, UnresolvedReference> unresolvedReferences = new LinkedHashMap<>();
+        private final Set<String> importedTypeNames = new HashSet<>();
         private final Set<String> ignoredImportedTopLevelNames = new HashSet<>();
         private final Set<String> ignoredOnDemandImportNames = new HashSet<>();
 
@@ -241,6 +242,7 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         private void recordImport(ImportDeclaration node) {
             String importedName = node.getName().getFullyQualifiedName();
             if (!node.isOnDemand() && recordExactTypeReference(importedName)) {
+                importedTypeNames.add(simpleName(importedName));
                 return;
             }
             if (node.isOnDemand() && !node.isStatic()) {
@@ -280,24 +282,21 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         }
 
         private static boolean looksLikeTypeName(Name name) {
-            String simpleName = name.isSimpleName()
-                ? name.getFullyQualifiedName()
-                : ((QualifiedName) name).getName().getIdentifier();
-            return !simpleName.isBlank() && Character.isUpperCase(simpleName.charAt(0));
+            return startsWithTypeName(simpleName(name.getFullyQualifiedName()));
         }
 
         private void recordUnresolvedInvocationQualifier(String name) {
-            if (!hasRecordedTypeReference(name)) {
-                recordUnresolved(name);
+            if (importedTypeNames.contains(name) || recordExactTypeReference(qualifyWithPackage(name))) {
+                return;
             }
+            recordUnresolved(name);
         }
 
-        private boolean hasRecordedTypeReference(String name) {
-            if (name.contains(".")) {
-                return sourceReferences.containsKey(name) || binaryReferences.containsKey(name);
+        private String qualifyWithPackage(String name) {
+            if (name.contains(".") || packageName.isBlank()) {
+                return name;
             }
-            return sourceReferences.keySet().stream().anyMatch(reference -> simpleName(reference).equals(name))
-                || binaryReferences.keySet().stream().anyMatch(reference -> simpleName(reference).equals(name));
+            return packageName + "." + name;
         }
 
         private void record(IVariableBinding binding) {

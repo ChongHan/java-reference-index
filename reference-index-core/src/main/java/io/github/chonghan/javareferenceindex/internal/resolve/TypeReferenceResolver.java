@@ -7,7 +7,7 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 public interface TypeReferenceResolver {
-    default void prepare(ProjectIndexingRequest request) {
+    default void beginScan(ProjectIndexingRequest request) {
     }
 
     Optional<SourceReference> resolveSource(String qualifiedName, Path sourceFile, ProjectIndexingRequest request);

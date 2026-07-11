@@ -410,7 +410,8 @@ class JdtJavaReferenceIndexerTest {
             import org.agrona.collections.IntArrayList;
 
             public class UsesAgrona {
-                Object value = IntArrayList.missingMethod();
+                Object imported = IntArrayList.missingMethod();
+                Object qualified = org.agrona.collections.IntArrayList.missingMethod();
             }
             """
         );

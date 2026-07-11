@@ -30,6 +30,7 @@ final class JdtCompilationUnitParser implements CompilationUnitParser {
 
         Map<String, String> options = JavaCore.getOptions();
         JavaCore.setComplianceOptions(request.compilerSettings().effectiveSourceLevel().compilerLevel(), options);
+        options.put(JavaCore.COMPILER_TASK_TAGS, "");
         parser.setCompilerOptions(options);
 
         Map<Path, CompilationUnit> compilationUnits = new LinkedHashMap<>();

@@ -129,9 +129,11 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
             try {
                 ASTParser parser = ASTParser.newParser(AST.JLS21);
                 parser.setKind(ASTParser.K_COMPILATION_UNIT);
+                parser.setIgnoreMethodBodies(true);
                 parser.setSource(Files.readString(source.path(), request.compilerSettings().encoding()).toCharArray());
                 Map<String, String> options = JavaCore.getOptions();
                 JavaCore.setComplianceOptions(request.compilerSettings().effectiveSourceLevel().compilerLevel(), options);
+                options.put(JavaCore.COMPILER_TASK_TAGS, "");
                 parser.setCompilerOptions(options);
                 CompilationUnit compilationUnit = (CompilationUnit) parser.createAST(null);
                 String packageName = compilationUnit.getPackage() == null

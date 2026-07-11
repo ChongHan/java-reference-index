@@ -214,7 +214,7 @@ Source references are preferred over binary references when both are available.
 
 Requirements:
 
-- Java 21
+- JDK 25 (compiled with `--release 21`)
 - Gradle wrapper from this repository
 
 Run the build:

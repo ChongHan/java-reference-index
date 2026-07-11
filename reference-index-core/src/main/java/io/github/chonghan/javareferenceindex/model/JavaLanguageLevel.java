@@ -14,7 +14,11 @@ public enum JavaLanguageLevel {
     JAVA_18("18"),
     JAVA_19("19"),
     JAVA_20("20"),
-    JAVA_21("21");
+    JAVA_21("21"),
+    JAVA_22("22"),
+    JAVA_23("23"),
+    JAVA_24("24"),
+    JAVA_25("25");
 
     private final String compilerLevel;
 

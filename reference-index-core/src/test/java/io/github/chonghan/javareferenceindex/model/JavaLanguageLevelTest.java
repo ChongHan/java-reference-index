@@ -21,7 +21,7 @@ class JavaLanguageLevelTest {
     @Test
     void fromCompilerLevel_rejectsUnsupportedVersions() {
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> JavaLanguageLevel.fromCompilerLevel("22"))
-            .withMessage("Unsupported Java language level: 22");
+            .isThrownBy(() -> JavaLanguageLevel.fromCompilerLevel("26"))
+            .withMessage("Unsupported Java language level: 26");
     }
 }

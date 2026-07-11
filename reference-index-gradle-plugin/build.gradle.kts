@@ -22,8 +22,12 @@ configurations[integrationTest.runtimeOnlyConfigurationName].extendsFrom(configu
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.release = 21
 }
 
 gradlePlugin {

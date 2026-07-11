@@ -76,6 +76,40 @@ class JdtJavaReferenceIndexerTest {
     }
 
     @Test
+    void index_withSecondaryTopLevelType_resolvesDeclaringSourceFile() {
+        Path sourceRoot = tempDir.resolve("secondary-top-level/src/main/java");
+        Path sourceFile = sourceRoot.resolve("example/UsesHelper.java");
+        Path declarationsFile = sourceRoot.resolve("example/Declarations.java");
+        writeSource(
+            sourceFile,
+            """
+            package example;
+
+            public class UsesHelper {
+                private Helper helper;
+            }
+            """
+        );
+        writeSource(
+            declarationsFile,
+            """
+            package example;
+
+            class Declarations {
+            }
+
+            class Helper {
+            }
+            """
+        );
+
+        ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of()));
+
+        assertThat(singleFile(index).sourceReferences())
+            .containsExactly(sourceReference("example.Helper", declarationsFile.toAbsolutePath().normalize()));
+    }
+
+    @Test
     void index_withSourceReferenceFromAnotherSourceRoot_returnsTargetOwnership() {
         Path fixtureRoot = fixturePath("jdt-indexer-source-root-ownership");
         Path appSourceRoot = fixtureRoot.resolve("app/src/main/java");

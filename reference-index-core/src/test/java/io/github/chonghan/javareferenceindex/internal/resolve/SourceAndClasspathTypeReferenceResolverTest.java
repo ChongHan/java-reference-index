@@ -2,6 +2,8 @@ package io.github.chonghan.javareferenceindex.internal.resolve;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.chonghan.javareferenceindex.model.BinaryReference;
+import io.github.chonghan.javareferenceindex.model.ClasspathEntry;
 import io.github.chonghan.javareferenceindex.model.JavaCompilerSettings;
 import io.github.chonghan.javareferenceindex.model.ProjectCoordinates;
 import io.github.chonghan.javareferenceindex.model.ProjectIndexingRequest;
@@ -11,6 +13,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.jar.Attributes;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -88,6 +94,56 @@ class SourceAndClasspathTypeReferenceResolverTest {
         );
 
         assertThat(reference).isEmpty();
+    }
+
+    @Test
+    void resolveBinary_withDollarInTopLevelClassName_preservesDollar() throws IOException {
+        Path classes = tempDir.resolve("classes");
+        createFile(classes.resolve("example/Foo$Bar.class"));
+        ClasspathEntry entry = ClasspathEntry.of(classes, "example:dollar-name:1.0");
+        ProjectIndexingRequest request = requestWithClasspath(entry);
+
+        var reference = resolver.resolveBinary("example.Foo$Bar", request);
+
+        assertThat(reference).contains(new BinaryReference(
+            "example.Foo$Bar",
+            "example:dollar-name:1.0",
+            "example.Foo$Bar"
+        ));
+    }
+
+    @Test
+    void resolveBinary_withVersionOnlyMultiReleaseClass_usesLogicalClassName() throws IOException {
+        Path jar = tempDir.resolve("multi-release.jar");
+        Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        manifest.getMainAttributes().putValue("Multi-Release", "true");
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar), manifest)) {
+            output.putNextEntry(new JarEntry("META-INF/versions/9/example/VersionOnly.class"));
+            output.write(new byte[] {0});
+            output.closeEntry();
+        }
+        ClasspathEntry entry = ClasspathEntry.of(jar, "example:multi-release:1.0");
+        ProjectIndexingRequest request = requestWithClasspath(entry);
+
+        var reference = resolver.resolveBinary("example.VersionOnly", request);
+
+        assertThat(reference).contains(new BinaryReference(
+            "example.VersionOnly",
+            "example:multi-release:1.0",
+            "example.VersionOnly"
+        ));
+    }
+
+    private static ProjectIndexingRequest requestWithClasspath(ClasspathEntry entry) {
+        return new ProjectIndexingRequest(
+            new ProjectCoordinates(":app"),
+            new SourceSetCoordinates("main"),
+            List.of(),
+            List.of(),
+            List.of(entry),
+            JavaCompilerSettings.java21()
+        );
     }
 
     private static ProjectIndexingRequest request(

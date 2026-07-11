@@ -76,6 +76,40 @@ class JdtJavaReferenceIndexerTest {
     }
 
     @Test
+    void index_withStaticImportOfNestedType_recordsNestedType() {
+        Path sourceRoot = tempDir.resolve("static-nested-import/src/main/java");
+        Path sourceFile = sourceRoot.resolve("consumer/UsesImport.java");
+        Path outerFile = sourceRoot.resolve("example/Outer.java");
+        writeSource(
+            sourceFile,
+            """
+            package consumer;
+
+            import static example.Outer.Inner;
+
+            public class UsesImport {
+            }
+            """
+        );
+        writeSource(
+            outerFile,
+            """
+            package example;
+
+            public class Outer {
+                public static class Inner {
+                }
+            }
+            """
+        );
+
+        ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of()));
+
+        assertThat(singleFile(index).sourceReferences())
+            .containsExactly(sourceReference("example.Outer.Inner", outerFile.toAbsolutePath().normalize()));
+    }
+
+    @Test
     void index_withSecondaryTopLevelType_resolvesDeclaringSourceFile() {
         Path sourceRoot = tempDir.resolve("secondary-top-level/src/main/java");
         Path sourceFile = sourceRoot.resolve("example/UsesHelper.java");

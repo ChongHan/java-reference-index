@@ -2,6 +2,7 @@ package io.github.chonghan.javareferenceindex.model;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 public record FileReferenceSet(
     Path sourceFile,
@@ -10,8 +11,9 @@ public record FileReferenceSet(
     List<UnresolvedReference> unresolvedReferences
 ) {
     public FileReferenceSet {
-        sourceReferences = List.copyOf(sourceReferences);
-        binaryReferences = List.copyOf(binaryReferences);
-        unresolvedReferences = List.copyOf(unresolvedReferences);
+        Objects.requireNonNull(sourceFile, "sourceFile");
+        sourceReferences = List.copyOf(Objects.requireNonNull(sourceReferences, "sourceReferences"));
+        binaryReferences = List.copyOf(Objects.requireNonNull(binaryReferences, "binaryReferences"));
+        unresolvedReferences = List.copyOf(Objects.requireNonNull(unresolvedReferences, "unresolvedReferences"));
     }
 }

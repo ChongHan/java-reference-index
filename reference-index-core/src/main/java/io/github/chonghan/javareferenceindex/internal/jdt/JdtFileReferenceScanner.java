@@ -232,11 +232,14 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
         }
 
         private void recordImport(ImportDeclaration node) {
+            String importedName = node.getName().getFullyQualifiedName();
+            if (!node.isOnDemand() && recordExactTypeReference(importedName)) {
+                return;
+            }
             if (node.isOnDemand() && !node.isStatic()) {
                 return;
             }
 
-            String importedName = node.getName().getFullyQualifiedName();
             String qualifiedName = node.isStatic() && !node.isOnDemand() ? withoutLastSegment(importedName) : importedName;
             if (shouldIgnore(qualifiedName)) {
                 return;
@@ -281,6 +284,19 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
                 return;
             }
             recordBinaryReference(qualifiedName);
+        }
+
+        private boolean recordExactTypeReference(String qualifiedName) {
+            var sourceReference = referenceResolver.resolveExactSource(qualifiedName, sourceFile, request);
+            if (sourceReference.isPresent()) {
+                SourceReference reference = sourceReference.orElseThrow();
+                sourceReferences.putIfAbsent(qualifiedName, reference);
+                binaryReferences.remove(qualifiedName);
+                return true;
+            }
+            var binaryReference = referenceResolver.resolveBinary(qualifiedName, request);
+            binaryReference.ifPresent(reference -> binaryReferences.putIfAbsent(qualifiedName, reference));
+            return binaryReference.isPresent();
         }
 
         private boolean recordSourceReference(String qualifiedName) {

@@ -2,6 +2,7 @@ package io.github.chonghan.javareferenceindex.model;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 public record ProjectIndexingRequest(
     ProjectCoordinates project,
@@ -12,8 +13,11 @@ public record ProjectIndexingRequest(
     JavaCompilerSettings compilerSettings
 ) {
     public ProjectIndexingRequest {
-        sourceRoots = List.copyOf(sourceRoots);
-        sourceFiles = List.copyOf(sourceFiles);
-        classpathEntries = List.copyOf(classpathEntries);
+        Objects.requireNonNull(project, "project");
+        Objects.requireNonNull(sourceSet, "sourceSet");
+        Objects.requireNonNull(compilerSettings, "compilerSettings");
+        sourceRoots = List.copyOf(Objects.requireNonNull(sourceRoots, "sourceRoots"));
+        sourceFiles = List.copyOf(Objects.requireNonNull(sourceFiles, "sourceFiles"));
+        classpathEntries = List.copyOf(Objects.requireNonNull(classpathEntries, "classpathEntries"));
     }
 }

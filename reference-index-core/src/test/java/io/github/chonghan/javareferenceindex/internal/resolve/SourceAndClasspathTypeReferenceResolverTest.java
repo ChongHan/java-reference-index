@@ -113,6 +113,23 @@ class SourceAndClasspathTypeReferenceResolverTest {
     }
 
     @Test
+    void resolveBinary_withClassNewerThanConfiguredRelease_ignoresClass() throws IOException {
+        Path jar = tempDir.resolve("future-multi-release.jar");
+        Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        manifest.getMainAttributes().putValue("Multi-Release", "true");
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar), manifest)) {
+            output.putNextEntry(new JarEntry("META-INF/versions/22/example/FutureType.class"));
+            output.write(new byte[] {0});
+            output.closeEntry();
+        }
+        ClasspathEntry entry = ClasspathEntry.of(jar, "example:future:1.0");
+        ProjectIndexingRequest request = requestWithClasspath(entry);
+
+        assertThat(resolver.resolveBinary("example.FutureType", request)).isEmpty();
+    }
+
+    @Test
     void resolveBinary_withVersionOnlyMultiReleaseClass_usesLogicalClassName() throws IOException {
         Path jar = tempDir.resolve("multi-release.jar");
         Manifest manifest = new Manifest();

@@ -1,6 +1,7 @@
 package io.github.chonghan.javareferenceindex.model;
 
 import java.util.List;
+import java.util.Objects;
 
 public record ProjectIndex(
     ProjectCoordinates project,
@@ -8,6 +9,8 @@ public record ProjectIndex(
     List<FileReferenceSet> files
 ) {
     public ProjectIndex {
-        files = List.copyOf(files);
+        Objects.requireNonNull(project, "project");
+        Objects.requireNonNull(sourceSet, "sourceSet");
+        files = List.copyOf(Objects.requireNonNull(files, "files"));
     }
 }

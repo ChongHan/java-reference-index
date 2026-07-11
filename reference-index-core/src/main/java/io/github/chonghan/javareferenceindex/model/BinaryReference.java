@@ -1,5 +1,7 @@
 package io.github.chonghan.javareferenceindex.model;
 
+import java.util.Objects;
+
 /**
  * A reference to a type resolved from a binary classpath entry.
  *
@@ -11,4 +13,10 @@ public record BinaryReference(
     String qualifiedName,
     String targetProject,
     String referenceSymbol
-) {}
+) {
+    public BinaryReference {
+        Objects.requireNonNull(qualifiedName, "qualifiedName");
+        Objects.requireNonNull(targetProject, "targetProject");
+        Objects.requireNonNull(referenceSymbol, "referenceSymbol");
+    }
+}

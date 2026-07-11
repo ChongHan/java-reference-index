@@ -24,21 +24,38 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
 
     @Override
     public Optional<SourceReference> resolveSource(String qualifiedName, Path sourceFile, ProjectIndexingRequest request) {
-        Path normalizedSourceFile = sourceFile.toAbsolutePath().normalize();
-        return sourceLookupFor(request).sourcePathFor(qualifiedName)
-            .filter(source -> !source.path().equals(normalizedSourceFile))
-            .map(source -> new SourceReference(
-                qualifiedName,
-                source.path(),
-                source.sourceRoot().project(),
-                source.sourceRoot().sourceSet()
-            ));
+        return sourceReference(qualifiedName, sourceFile, sourceLookupFor(request).sourcePathFor(qualifiedName));
+    }
+
+    @Override
+    public Optional<SourceReference> resolveExactSource(
+        String qualifiedName,
+        Path sourceFile,
+        ProjectIndexingRequest request
+    ) {
+        return sourceReference(qualifiedName, sourceFile, sourceLookupFor(request).exactSourcePathFor(qualifiedName));
     }
 
     @Override
     public Optional<BinaryReference> resolveBinary(String qualifiedName, ProjectIndexingRequest request) {
         return binaryLookupFor(request).binaryEntryFor(qualifiedName)
             .map(classpathEntry -> new BinaryReference(qualifiedName, classpathEntry.target(), qualifiedName));
+    }
+
+    private static Optional<SourceReference> sourceReference(
+        String qualifiedName,
+        Path sourceFile,
+        Optional<ResolvedSource> source
+    ) {
+        Path normalizedSourceFile = sourceFile.toAbsolutePath().normalize();
+        return source
+            .filter(candidate -> !candidate.path().equals(normalizedSourceFile))
+            .map(candidate -> new SourceReference(
+                qualifiedName,
+                candidate.path(),
+                candidate.sourceRoot().project(),
+                candidate.sourceRoot().sourceSet()
+            ));
     }
 
     private SourceLookup sourceLookupFor(ProjectIndexingRequest request) {
@@ -54,7 +71,7 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
     }
 
     private static final class SourceLookup {
-        private final Map<String, ResolvedSource> sourcesByTopLevelType = new java.util.HashMap<>();
+        private final Map<String, ResolvedSource> sourcesByDeclaredType = new java.util.HashMap<>();
         private final ProjectIndexingRequest request;
 
         private SourceLookup(ProjectIndexingRequest request) {
@@ -65,13 +82,17 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
         private Optional<ResolvedSource> sourcePathFor(String qualifiedName) {
             String candidateName = qualifiedName;
             while (candidateName.contains(".")) {
-                ResolvedSource source = sourcesByTopLevelType.get(candidateName);
+                ResolvedSource source = sourcesByDeclaredType.get(candidateName);
                 if (source != null) {
                     return Optional.of(source);
                 }
                 candidateName = candidateName.substring(0, candidateName.lastIndexOf('.'));
             }
             return Optional.empty();
+        }
+
+        private Optional<ResolvedSource> exactSourcePathFor(String qualifiedName) {
+            return Optional.ofNullable(sourcesByDeclaredType.get(qualifiedName));
         }
 
         private void index(SourceRoot sourceRoot) {
@@ -86,7 +107,7 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
                     .forEach(path -> {
                         ResolvedSource source = new ResolvedSource(path.toAbsolutePath().normalize(), sourceRoot);
                         if (!indexDeclaredTopLevelTypes(source)) {
-                            sourcesByTopLevelType.putIfAbsent(qualifiedName(root, path), source);
+                            sourcesByDeclaredType.putIfAbsent(qualifiedName(root, path), source);
                         }
                     });
             } catch (IOException ignored) {
@@ -110,14 +131,27 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
                 for (Object declaration : compilationUnit.types()) {
                     if (declaration instanceof AbstractTypeDeclaration typeDeclaration) {
                         foundDeclaration = true;
-                        String simpleName = typeDeclaration.getName().getIdentifier();
-                        String qualifiedName = packageName.isBlank() ? simpleName : packageName + "." + simpleName;
-                        sourcesByTopLevelType.putIfAbsent(qualifiedName, source);
+                        indexTypeDeclaration(typeDeclaration, packageName, source);
                     }
                 }
                 return foundDeclaration;
             } catch (IOException ignored) {
                 return false;
+            }
+        }
+
+        private void indexTypeDeclaration(
+            AbstractTypeDeclaration declaration,
+            String enclosingName,
+            ResolvedSource source
+        ) {
+            String simpleName = declaration.getName().getIdentifier();
+            String qualifiedName = enclosingName.isBlank() ? simpleName : enclosingName + "." + simpleName;
+            sourcesByDeclaredType.putIfAbsent(qualifiedName, source);
+            for (Object bodyDeclaration : declaration.bodyDeclarations()) {
+                if (bodyDeclaration instanceof AbstractTypeDeclaration nestedDeclaration) {
+                    indexTypeDeclaration(nestedDeclaration, qualifiedName, source);
+                }
             }
         }
 
@@ -132,8 +166,12 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
 
     private static final class BinaryLookup {
         private final Map<String, ClasspathEntry> entriesByClass = new java.util.HashMap<>();
+        private final Runtime.Version targetRuntimeVersion;
 
         private BinaryLookup(ProjectIndexingRequest request) {
+            targetRuntimeVersion = Runtime.Version.parse(
+                request.compilerSettings().effectiveSourceLevel().compilerLevel()
+            );
             request.classpathEntries().forEach(this::index);
         }
 
@@ -151,7 +189,7 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
         }
 
         private void indexJar(Path jar, ClasspathEntry classpathEntry) {
-            try (JarFile jarFile = new JarFile(jar.toFile(), true, JarFile.OPEN_READ, Runtime.version())) {
+            try (JarFile jarFile = new JarFile(jar.toFile(), true, JarFile.OPEN_READ, targetRuntimeVersion)) {
                 jarFile.versionedStream()
                     .filter(entry -> !entry.isDirectory())
                     .map(java.util.jar.JarEntry::getName)

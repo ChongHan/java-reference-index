@@ -12,6 +12,11 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.jar.JarFile;
+import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
+import org.eclipse.jdt.core.dom.CompilationUnit;
 
 public final class SourceAndClasspathTypeReferenceResolver implements TypeReferenceResolver {
     private final Map<ProjectIndexingRequest, SourceLookup> sourceLookups = new IdentityHashMap<>();
@@ -50,8 +55,10 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
 
     private static final class SourceLookup {
         private final Map<String, ResolvedSource> sourcesByTopLevelType = new java.util.HashMap<>();
+        private final ProjectIndexingRequest request;
 
         private SourceLookup(ProjectIndexingRequest request) {
+            this.request = request;
             request.sourceRoots().forEach(this::index);
         }
 
@@ -76,12 +83,41 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
                 paths
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".java"))
-                    .forEach(path -> sourcesByTopLevelType.putIfAbsent(
-                        qualifiedName(root, path),
-                        new ResolvedSource(path.toAbsolutePath().normalize(), sourceRoot)
-                    ));
+                    .forEach(path -> {
+                        ResolvedSource source = new ResolvedSource(path.toAbsolutePath().normalize(), sourceRoot);
+                        if (!indexDeclaredTopLevelTypes(source)) {
+                            sourcesByTopLevelType.putIfAbsent(qualifiedName(root, path), source);
+                        }
+                    });
             } catch (IOException ignored) {
                 // Ignore unreadable source roots in the same way the previous lookup missed them.
+            }
+        }
+
+        private boolean indexDeclaredTopLevelTypes(ResolvedSource source) {
+            try {
+                ASTParser parser = ASTParser.newParser(AST.JLS21);
+                parser.setKind(ASTParser.K_COMPILATION_UNIT);
+                parser.setSource(Files.readString(source.path(), request.compilerSettings().encoding()).toCharArray());
+                Map<String, String> options = JavaCore.getOptions();
+                JavaCore.setComplianceOptions(request.compilerSettings().effectiveSourceLevel().compilerLevel(), options);
+                parser.setCompilerOptions(options);
+                CompilationUnit compilationUnit = (CompilationUnit) parser.createAST(null);
+                String packageName = compilationUnit.getPackage() == null
+                    ? ""
+                    : compilationUnit.getPackage().getName().getFullyQualifiedName();
+                boolean foundDeclaration = false;
+                for (Object declaration : compilationUnit.types()) {
+                    if (declaration instanceof AbstractTypeDeclaration typeDeclaration) {
+                        foundDeclaration = true;
+                        String simpleName = typeDeclaration.getName().getIdentifier();
+                        String qualifiedName = packageName.isBlank() ? simpleName : packageName + "." + simpleName;
+                        sourcesByTopLevelType.putIfAbsent(qualifiedName, source);
+                    }
+                }
+                return foundDeclaration;
+            } catch (IOException ignored) {
+                return false;
             }
         }
 
@@ -115,13 +151,12 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
         }
 
         private void indexJar(Path jar, ClasspathEntry classpathEntry) {
-            try (JarFile jarFile = new JarFile(jar.toFile())) {
-                jarFile.stream()
+            try (JarFile jarFile = new JarFile(jar.toFile(), true, JarFile.OPEN_READ, Runtime.version())) {
+                jarFile.versionedStream()
                     .filter(entry -> !entry.isDirectory())
                     .map(java.util.jar.JarEntry::getName)
                     .filter(BinaryLookup::isClassFile)
-                    .map(BinaryLookup::className)
-                    .forEach(className -> entriesByClass.putIfAbsent(className, classpathEntry));
+                    .forEach(entryName -> indexClass(entryName, classpathEntry));
             } catch (IOException ignored) {
                 // Ignore unreadable classpath entries in the same way the previous lookup missed them.
             }
@@ -133,21 +168,25 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
                     .filter(Files::isRegularFile)
                     .filter(path -> isClassFile(path.getFileName().toString()))
                     .map(path -> directory.relativize(path.toAbsolutePath().normalize()).toString().replace('\\', '/'))
-                    .map(BinaryLookup::className)
-                    .forEach(className -> entriesByClass.putIfAbsent(className, classpathEntry));
+                    .forEach(entryName -> indexClass(entryName, classpathEntry));
             } catch (IOException ignored) {
                 // Ignore unreadable classpath entries in the same way the previous lookup missed them.
             }
+        }
+
+        private void indexClass(String entryName, ClasspathEntry classpathEntry) {
+            String binaryName = binaryClassName(entryName);
+            entriesByClass.putIfAbsent(binaryName, classpathEntry);
+            entriesByClass.putIfAbsent(binaryName.replace('$', '.'), classpathEntry);
         }
 
         private static boolean isClassFile(String name) {
             return name.endsWith(".class");
         }
 
-        private static String className(String entryName) {
+        private static String binaryClassName(String entryName) {
             return entryName
                 .replace('/', '.')
-                .replace('$', '.')
                 .replaceFirst("\\.class$", "");
         }
     }

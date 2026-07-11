@@ -80,6 +80,30 @@ class SourceAndClasspathTypeReferenceResolverTest {
     }
 
     @Test
+    void resolveSource_afterSourceRootChanges_refreshesLookup() throws IOException {
+        ProjectCoordinates app = new ProjectCoordinates(":app");
+        ProjectCoordinates lib = new ProjectCoordinates(":lib");
+        SourceSetCoordinates main = new SourceSetCoordinates("main");
+        Path appFile = tempDir.resolve("app/src/main/java/app/App.java");
+        Path libRoot = tempDir.resolve("lib/src/main/java");
+        Path addedFile = libRoot.resolve("example/Added.java");
+        createFile(appFile);
+        ProjectIndexingRequest request = request(
+            app,
+            main,
+            List.of(new SourceRoot(libRoot, lib, main)),
+            List.of(appFile)
+        );
+
+        assertThat(resolver.resolveSource("example.Added", appFile, request)).isEmpty();
+        createFile(addedFile);
+
+        assertThat(resolver.resolveSource("example.Added", appFile, request))
+            .hasValueSatisfying(reference -> assertThat(reference.sourceFile())
+                .isEqualTo(addedFile.toAbsolutePath().normalize()));
+    }
+
+    @Test
     void resolveSource_withSameSourceFile_ignoresSelfReference() throws IOException {
         ProjectCoordinates project = new ProjectCoordinates(":app");
         SourceSetCoordinates main = new SourceSetCoordinates("main");
@@ -94,6 +118,23 @@ class SourceAndClasspathTypeReferenceResolverTest {
         );
 
         assertThat(reference).isEmpty();
+    }
+
+    @Test
+    void resolveBinary_afterClasspathDirectoryChanges_refreshesLookup() throws IOException {
+        Path classes = tempDir.resolve("classes");
+        Files.createDirectories(classes);
+        ClasspathEntry entry = ClasspathEntry.of(classes, "example:changing:1.0");
+        ProjectIndexingRequest request = requestWithClasspath(entry);
+
+        assertThat(resolver.resolveBinary("example.Added", request)).isEmpty();
+        createFile(classes.resolve("example/Added.class"));
+
+        assertThat(resolver.resolveBinary("example.Added", request)).contains(new BinaryReference(
+            "example.Added",
+            "example:changing:1.0",
+            "example.Added"
+        ));
     }
 
     @Test

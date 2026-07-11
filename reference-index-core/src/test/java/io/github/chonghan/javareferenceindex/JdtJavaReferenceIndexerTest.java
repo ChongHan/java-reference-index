@@ -64,6 +64,28 @@ class JdtJavaReferenceIndexerTest {
     }
 
     @Test
+    void index_withUnresolvedMethodInvocationQualifier_recordsUnresolvedReference() {
+        Path sourceRoot = tempDir.resolve("unresolved-invocation/src/main/java");
+        Path sourceFile = sourceRoot.resolve("example/UsesMissingFactory.java");
+        writeSource(
+            sourceFile,
+            """
+            package example;
+
+            public class UsesMissingFactory {
+                Object value = MissingFactory.create();
+            }
+            """
+        );
+
+        ProjectIndex index = indexer.index(request(sourceRoot, List.of(sourceFile), List.of()));
+
+        assertThat(singleFile(index).unresolvedReferences())
+            .extracting(reference -> reference.name())
+            .containsExactly("MissingFactory");
+    }
+
+    @Test
     void index_withSourceReference_resolvesReferencedSourceFile() {
         Path sourceRoot = fixtureSourceRoot("jdt-indexer-source-reference");
         Path sourceFile = sourceRoot.resolve("example/UsesHelper.java");

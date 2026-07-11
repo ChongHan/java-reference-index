@@ -86,6 +86,41 @@ class JdtJavaReferenceIndexerTest {
     }
 
     @Test
+    void index_reusingRequestAfterSourceRootChanges_refreshesSourceLookup() {
+        Path sourceRoot = tempDir.resolve("changing-source-root/src/main/java");
+        Path sourceFile = sourceRoot.resolve("example/UsesAdded.java");
+        Path addedFile = sourceRoot.resolve("example/Added.java");
+        writeSource(
+            sourceFile,
+            """
+            package example;
+
+            public class UsesAdded {
+                Added added;
+            }
+            """
+        );
+        ProjectIndexingRequest indexingRequest = request(sourceRoot, List.of(sourceFile), List.of());
+
+        assertThat(singleFile(indexer.index(indexingRequest)).unresolvedReferences())
+            .extracting(reference -> reference.name())
+            .contains("Added");
+
+        writeSource(
+            addedFile,
+            """
+            package example;
+
+            public class Added {
+            }
+            """
+        );
+
+        assertThat(singleFile(indexer.index(indexingRequest)).sourceReferences())
+            .containsExactly(sourceReference("example.Added", addedFile.toAbsolutePath().normalize()));
+    }
+
+    @Test
     void index_withSourceReference_resolvesReferencedSourceFile() {
         Path sourceRoot = fixtureSourceRoot("jdt-indexer-source-reference");
         Path sourceFile = sourceRoot.resolve("example/UsesHelper.java");
@@ -360,6 +395,40 @@ class JdtJavaReferenceIndexerTest {
         assertThat(references.sourceReferences())
             .containsExactly(sourceReference("example.App", targetFile));
         assertThat(references.binaryReferences()).isEmpty();
+        assertThat(references.unresolvedReferences()).isEmpty();
+    }
+
+    @Test
+    void index_withMissingMethodOnBinaryType_recordsBinaryTypeOnly() {
+        Path sourceRoot = tempDir.resolve("missing-binary-method/src/main/java");
+        Path sourceFile = sourceRoot.resolve("example/UsesAgrona.java");
+        writeSource(
+            sourceFile,
+            """
+            package example;
+
+            import org.agrona.collections.IntArrayList;
+
+            public class UsesAgrona {
+                Object value = IntArrayList.missingMethod();
+            }
+            """
+        );
+        Path agronaJar = classpathJarContaining(IntArrayList.class);
+        ClasspathEntry agrona = ClasspathEntry.of(agronaJar, "org.agrona:agrona:2.4.1");
+
+        ProjectIndex index = indexer.index(ReferenceIndexingFixtures.requestWithClasspathEntries(
+            sourceRoot,
+            List.of(sourceFile),
+            List.of(agrona)
+        ));
+
+        FileReferenceSet references = singleFile(index);
+        assertThat(references.binaryReferences()).containsExactly(new BinaryReference(
+            "org.agrona.collections.IntArrayList",
+            "org.agrona:agrona:2.4.1",
+            "org.agrona.collections.IntArrayList"
+        ));
         assertThat(references.unresolvedReferences()).isEmpty();
     }
 

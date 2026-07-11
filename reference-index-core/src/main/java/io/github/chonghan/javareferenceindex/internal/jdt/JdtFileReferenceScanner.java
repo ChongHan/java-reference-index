@@ -28,6 +28,7 @@ import org.eclipse.jdt.core.dom.ImportDeclaration;
 import org.eclipse.jdt.core.dom.InstanceofExpression;
 import org.eclipse.jdt.core.dom.MarkerAnnotation;
 import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.Name;
 import org.eclipse.jdt.core.dom.NameQualifiedType;
 import org.eclipse.jdt.core.dom.NormalAnnotation;
 import org.eclipse.jdt.core.dom.QualifiedName;
@@ -51,6 +52,7 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
 
     @Override
     public List<FileReferenceSet> scan(ProjectIndexingRequest request) {
+        referenceResolver.prepare(request);
         Map<Path, CompilationUnit> compilationUnits = parser.parse(request);
         return request.sourceFiles().stream()
             .map(sourceFile -> scan(sourceFile, compilationUnits.get(normalize(sourceFile)), request))
@@ -139,7 +141,12 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
 
         @Override
         public boolean visit(MethodInvocation node) {
-            record(node.resolveMethodBinding());
+            IMethodBinding binding = node.resolveMethodBinding();
+            if (isResolved(binding)) {
+                record(binding);
+            } else if (node.getExpression() instanceof Name name && looksLikeTypeName(name)) {
+                recordUnresolvedInvocationQualifier(name.getFullyQualifiedName());
+            }
             return true;
         }
 
@@ -262,6 +269,35 @@ final class JdtFileReferenceScanner implements FileReferenceScanner {
             if (binding != null) {
                 record(binding.getMethodDeclaration().getDeclaringClass());
             }
+        }
+
+        private static boolean isResolved(IMethodBinding binding) {
+            if (binding == null) {
+                return false;
+            }
+            ITypeBinding declaringClass = binding.getMethodDeclaration().getDeclaringClass();
+            return declaringClass != null && !declaringClass.isRecovered();
+        }
+
+        private static boolean looksLikeTypeName(Name name) {
+            String simpleName = name.isSimpleName()
+                ? name.getFullyQualifiedName()
+                : ((QualifiedName) name).getName().getIdentifier();
+            return !simpleName.isBlank() && Character.isUpperCase(simpleName.charAt(0));
+        }
+
+        private void recordUnresolvedInvocationQualifier(String name) {
+            if (!hasRecordedTypeReference(name)) {
+                recordUnresolved(name);
+            }
+        }
+
+        private boolean hasRecordedTypeReference(String name) {
+            if (name.contains(".")) {
+                return sourceReferences.containsKey(name) || binaryReferences.containsKey(name);
+            }
+            return sourceReferences.keySet().stream().anyMatch(reference -> simpleName(reference).equals(name))
+                || binaryReferences.keySet().stream().anyMatch(reference -> simpleName(reference).equals(name));
         }
 
         private void record(IVariableBinding binding) {

@@ -80,7 +80,7 @@ class SourceAndClasspathTypeReferenceResolverTest {
     }
 
     @Test
-    void resolveSource_afterSourceRootChanges_refreshesLookup() throws IOException {
+    void prepare_afterSourceRootChanges_refreshesLookup() throws IOException {
         ProjectCoordinates app = new ProjectCoordinates(":app");
         ProjectCoordinates lib = new ProjectCoordinates(":lib");
         SourceSetCoordinates main = new SourceSetCoordinates("main");
@@ -97,6 +97,7 @@ class SourceAndClasspathTypeReferenceResolverTest {
 
         assertThat(resolver.resolveSource("example.Added", appFile, request)).isEmpty();
         createFile(addedFile);
+        resolver.prepare(request);
 
         assertThat(resolver.resolveSource("example.Added", appFile, request))
             .hasValueSatisfying(reference -> assertThat(reference.sourceFile())
@@ -121,7 +122,7 @@ class SourceAndClasspathTypeReferenceResolverTest {
     }
 
     @Test
-    void resolveBinary_afterClasspathDirectoryChanges_refreshesLookup() throws IOException {
+    void prepare_afterClasspathDirectoryChanges_refreshesLookup() throws IOException {
         Path classes = tempDir.resolve("classes");
         Files.createDirectories(classes);
         ClasspathEntry entry = ClasspathEntry.of(classes, "example:changing:1.0");
@@ -129,6 +130,7 @@ class SourceAndClasspathTypeReferenceResolverTest {
 
         assertThat(resolver.resolveBinary("example.Added", request)).isEmpty();
         createFile(classes.resolve("example/Added.class"));
+        resolver.prepare(request);
 
         assertThat(resolver.resolveBinary("example.Added", request)).contains(new BinaryReference(
             "example.Added",

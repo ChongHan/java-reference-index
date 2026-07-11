@@ -23,6 +23,16 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
     private final Map<ProjectIndexingRequest, BinaryLookup> binaryLookups = new IdentityHashMap<>();
 
     @Override
+    public void prepare(ProjectIndexingRequest request) {
+        synchronized (sourceLookups) {
+            sourceLookups.remove(request);
+        }
+        synchronized (binaryLookups) {
+            binaryLookups.remove(request);
+        }
+    }
+
+    @Override
     public Optional<SourceReference> resolveSource(String qualifiedName, Path sourceFile, ProjectIndexingRequest request) {
         return sourceReference(qualifiedName, sourceFile, sourceLookupFor(request).sourcePathFor(qualifiedName));
     }

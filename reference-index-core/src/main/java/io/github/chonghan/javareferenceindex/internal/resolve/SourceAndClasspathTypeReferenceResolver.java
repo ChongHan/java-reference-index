@@ -83,9 +83,13 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
     private static final class SourceLookup {
         private final Map<String, ResolvedSource> sourcesByDeclaredType = new java.util.HashMap<>();
         private final ProjectIndexingRequest request;
+        private final Map<String, String> compilerOptions;
 
         private SourceLookup(ProjectIndexingRequest request) {
             this.request = request;
+            compilerOptions = JavaCore.getOptions();
+            JavaCore.setComplianceOptions(request.compilerSettings().effectiveSourceLevel().compilerLevel(), compilerOptions);
+            compilerOptions.put(JavaCore.COMPILER_TASK_TAGS, "");
             request.sourceRoots().forEach(this::index);
         }
 
@@ -131,10 +135,7 @@ public final class SourceAndClasspathTypeReferenceResolver implements TypeRefere
                 parser.setKind(ASTParser.K_COMPILATION_UNIT);
                 parser.setIgnoreMethodBodies(true);
                 parser.setSource(Files.readString(source.path(), request.compilerSettings().encoding()).toCharArray());
-                Map<String, String> options = JavaCore.getOptions();
-                JavaCore.setComplianceOptions(request.compilerSettings().effectiveSourceLevel().compilerLevel(), options);
-                options.put(JavaCore.COMPILER_TASK_TAGS, "");
-                parser.setCompilerOptions(options);
+                parser.setCompilerOptions(compilerOptions);
                 CompilationUnit compilationUnit = (CompilationUnit) parser.createAST(null);
                 String packageName = compilationUnit.getPackage() == null
                     ? ""

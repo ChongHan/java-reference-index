@@ -38,6 +38,17 @@ class JdtJavaReferenceIndexerTest {
     Path tempDir;
 
     @Test
+    void index_withNoSourceFiles_returnsEmptyProjectIndex() {
+        Path sourceRoot = tempDir.resolve("empty/src/main/java");
+
+        ProjectIndex index = indexer.index(request(sourceRoot, List.of(), List.of()));
+
+        assertThat(index.files()).isEmpty();
+        assertThat(index.project()).isEqualTo(new ProjectCoordinates(":fixture"));
+        assertThat(index.sourceSet()).isEqualTo(new SourceSetCoordinates("main"));
+    }
+
+    @Test
     void index_withNoReferences_returnsEmptyReferenceSets() {
         Path sourceRoot = fixtureSourceRoot("jdt-indexer-no-references");
         Path sourceFile = sourceRoot.resolve("example/Plain.java");

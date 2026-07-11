@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 class JavaReferenceNoSourcesBuildCacheTest extends GradlePluginTestKit {
     @Test
-    void javaReferenceIndex_fromCacheWithNoSources_doesNotDeleteExistingReferenceCsvFiles() throws IOException {
+    void javaReferenceIndex_fromCacheWithNoSources_replacesStaleReferenceCsvFiles() throws IOException {
         Path firstProject = projectDir.resolve("first");
         Path secondProject = projectDir.resolve("second");
         Path buildCacheDirectory = projectDir.resolve("local-build-cache");
@@ -43,5 +43,7 @@ class JavaReferenceNoSourcesBuildCacheTest extends GradlePluginTestKit {
         assertThat(firstResult.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(secondResult.task(":empty:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.FROM_CACHE);
         assertThat(existingCsv).isRegularFile();
+        assertThat(Files.readAllLines(existingCsv))
+            .containsExactly("source_project,source_path,target_origin,target_project,target_path,reference_symbol");
     }
 }

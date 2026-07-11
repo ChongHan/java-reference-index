@@ -5,14 +5,16 @@ import io.github.chonghan.javareferenceindex.csv.CsvReferenceIndexWriteRequest;
 import io.github.chonghan.javareferenceindex.csv.ReferenceIndexCsvWriters;
 import io.github.chonghan.javareferenceindex.model.ClasspathEntry;
 import io.github.chonghan.javareferenceindex.model.JavaCompilerSettings;
+import io.github.chonghan.javareferenceindex.model.JavaLanguageLevel;
 import io.github.chonghan.javareferenceindex.model.ProjectCoordinates;
 import io.github.chonghan.javareferenceindex.model.ProjectIndex;
 import io.github.chonghan.javareferenceindex.model.ProjectIndexingRequest;
 import io.github.chonghan.javareferenceindex.model.SourceRoot;
 import io.github.chonghan.javareferenceindex.model.SourceSetCoordinates;
-import java.io.Serializable;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -26,7 +28,7 @@ import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Internal;
-import org.gradle.api.tasks.OutputFiles;
+import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
@@ -119,6 +121,15 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
     public abstract ConfigurableFileCollection getSourceInputFiles();
 
     /**
+     * Returns Java source files from dependency projects that can be reference targets.
+     *
+     * @return dependency source input file collection
+     */
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    public abstract ConfigurableFileCollection getDependencySourceInputFiles();
+
+    /**
      * Returns the compile classpath files used while resolving references.
      *
      * @return classpath files for all configured source sets
@@ -137,27 +148,33 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
      *
      * @return the output directory property
      */
-    @Internal
+    @OutputDirectory
     public abstract DirectoryProperty getOutputDirectory();
-
-    /**
-     * Returns the expected CSV output files for the configured source sets.
-     *
-     * @return output CSV files for this task
-     */
-    @OutputFiles
-    public List<File> getOutputFiles() {
-        return sourceSets.stream()
-            .map(sourceSet -> outputFile(sourceSet.sourceSetName()).toFile())
-            .toList();
-    }
 
     /**
      * Builds Java reference indexes and writes them as CSV files.
      */
     @TaskAction
     public void javaReferenceIndex() {
+        cleanReferenceCsvFiles();
         sourceSets.forEach(this::indexSourceSet);
+    }
+
+    private void cleanReferenceCsvFiles() {
+        Path outputDirectory = getOutputDirectory().get().getAsFile().toPath();
+        try {
+            Files.createDirectories(outputDirectory);
+            try (var files = Files.list(outputDirectory)) {
+                for (Path file : files
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith("-references.csv"))
+                    .toList()) {
+                    Files.delete(file);
+                }
+            }
+        } catch (IOException e) {
+            throw new GradleException("Failed to prepare Java reference index output directory", e);
+        }
     }
 
     private void indexSourceSet(SourceSetSpec sourceSet) {
@@ -165,9 +182,6 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
         long prepareStart = totalStart;
 
         List<Path> sourceFiles = sourceFiles(sourceSet);
-        if (sourceFiles.isEmpty()) {
-            return;
-        }
 
         ProjectCoordinates projectCoordinates = new ProjectCoordinates(sourceSet.projectPath());
         SourceSetCoordinates sourceSetCoordinates = new SourceSetCoordinates(sourceSet.sourceSetName());
@@ -189,7 +203,7 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             sourceRoots,
             sourceFiles,
             classpathEntries,
-            JavaCompilerSettings.java21()
+            sourceSet.compilerSettings()
         );
         long prepareNanos = elapsedSince(prepareStart);
 
@@ -319,13 +333,21 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
      * @param rootDir root directory used to normalize paths
      * @param sourceRoots source roots visible while indexing this source set
      * @param classpathEntries compile classpath entries visible while indexing this source set
+     * @param sourceLevel Java source language level
+     * @param targetLevel Java target language level
+     * @param release Java release level, or null when not configured
+     * @param encoding source encoding name, or null for the platform default
      */
     public record SourceSetSpec(
         String projectPath,
         String sourceSetName,
         String rootDir,
         List<SourceRootSpec> sourceRoots,
-        List<ClasspathEntrySpec> classpathEntries
+        List<ClasspathEntrySpec> classpathEntries,
+        String sourceLevel,
+        String targetLevel,
+        String release,
+        String encoding
     ) implements Serializable {
         /**
          * Creates a source set specification with immutable nested lists.
@@ -335,6 +357,10 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
          * @param rootDir root directory used to normalize paths
          * @param sourceRoots source roots visible while indexing this source set
          * @param classpathEntries compile classpath entries visible while indexing this source set
+         * @param sourceLevel Java source language level
+         * @param targetLevel Java target language level
+         * @param release Java release level, or null when not configured
+         * @param encoding source encoding name, or null for the platform default
          */
         public SourceSetSpec {
             sourceRoots = List.copyOf(sourceRoots);
@@ -346,13 +372,35 @@ public abstract class IndexJavaReferencesTask extends DefaultTask {
             return java.util.stream.Stream.of(
                     java.util.stream.Stream.of(
                         "projectPath=" + projectPath,
-                        "sourceSetName=" + sourceSetName
+                        "sourceSetName=" + sourceSetName,
+                        "sourceLevel=" + sourceLevel,
+                        "targetLevel=" + targetLevel,
+                        "release=" + release,
+                        "encoding=" + effectiveEncoding().name()
                     ),
                     sourceRoots.stream().map(sourceRoot -> "sourceRoot=" + sourceRoot.cacheKey(rootDirPath))
                 )
                 .flatMap(stream -> stream)
                 .sorted()
                 .toList();
+        }
+
+        private JavaCompilerSettings compilerSettings() {
+            JavaLanguageLevel configuredSourceLevel = JavaLanguageLevel.fromCompilerLevel(sourceLevel);
+            JavaLanguageLevel configuredTargetLevel = JavaLanguageLevel.fromCompilerLevel(targetLevel);
+            JavaLanguageLevel configuredRelease = release == null
+                ? null
+                : JavaLanguageLevel.fromCompilerLevel(release);
+            return new JavaCompilerSettings(
+                configuredSourceLevel,
+                configuredTargetLevel,
+                configuredRelease,
+                effectiveEncoding()
+            );
+        }
+
+        private Charset effectiveEncoding() {
+            return encoding == null ? Charset.defaultCharset() : Charset.forName(encoding);
         }
     }
 

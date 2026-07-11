@@ -25,6 +25,7 @@ import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.api.tasks.compile.JavaCompile;
 
 /**
  * Gradle plugin that registers Java reference indexing and query tasks.
@@ -67,8 +68,10 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         project.getPlugins().withType(JavaPlugin.class, javaPlugin -> {
             JavaPluginExtension java = project.getExtensions().getByType(JavaPluginExtension.class);
             indexTask.configure(task -> {
-                task.setSourceSets(sourceSetSpecs(project, java));
+                List<IndexJavaReferencesTask.SourceSetSpec> sourceSets = sourceSetSpecs(project, java);
+                task.setSourceSets(sourceSets);
                 task.getSourceInputFiles().from(sourceInputFiles(java));
+                task.getDependencySourceInputFiles().from(dependencySourceInputFiles(project, sourceSets));
                 task.dependsOn(compileJavaTasks(project, java));
             });
         });
@@ -186,13 +189,7 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         JavaPluginExtension java
     ) {
         return java.getSourceSets().stream()
-            .flatMap(sourceSet -> {
-                List<IndexJavaReferencesTask.SourceRootSpec> sourceRoots = sourceRoots(project, java, sourceSet);
-                if (sourceRoots.isEmpty()) {
-                    return Stream.empty();
-                }
-                return Stream.of(sourceSetSpec(project, sourceSet, sourceRoots));
-            })
+            .map(sourceSet -> sourceSetSpec(project, sourceSet, sourceRoots(project, java, sourceSet)))
             .toList();
     }
 
@@ -201,12 +198,20 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         SourceSet sourceSet,
         List<IndexJavaReferencesTask.SourceRootSpec> sourceRoots
     ) {
+        JavaCompile compileJava = project.getTasks()
+            .named(sourceSet.getCompileJavaTaskName(), JavaCompile.class)
+            .get();
+        Integer release = compileJava.getOptions().getRelease().getOrNull();
         return new IndexJavaReferencesTask.SourceSetSpec(
             project.getPath(),
             sourceSet.getName(),
             project.getRootDir().toPath().toAbsolutePath().normalize().toString(),
             sourceRoots,
-            classpathEntries(project, sourceSet)
+            classpathEntries(project, sourceSet),
+            compileJava.getSourceCompatibility(),
+            compileJava.getTargetCompatibility(),
+            release == null ? null : release.toString(),
+            compileJava.getOptions().getEncoding()
         );
     }
 
@@ -429,6 +434,42 @@ public class JavaReferenceIndexPlugin implements Plugin<Project> {
         return java.getSourceSets().stream()
             .map(SourceSet::getAllJava)
             .toList();
+    }
+
+    private static List<?> dependencySourceInputFiles(
+        Project project,
+        List<IndexJavaReferencesTask.SourceSetSpec> sourceSets
+    ) {
+        return sourceSets.stream()
+            .flatMap(sourceSet -> sourceSet.sourceRoots().stream())
+            .filter(sourceRoot -> !sourceRoot.projectPath().equals(project.getPath()))
+            // Generated sources are tracked through the compiled classpath. Registering another project's
+            // generated outputs directly would require cross-project task-model access under Isolated Projects.
+            .filter(sourceRoot -> !isConventionalBuildOutput(project, sourceRoot))
+            .distinct()
+            .map(sourceRoot -> project.fileTree(sourceRoot.path(), tree -> tree.include("**/*.java")))
+            .toList();
+    }
+
+    private static boolean isConventionalBuildOutput(
+        Project project,
+        IndexJavaReferencesTask.SourceRootSpec sourceRoot
+    ) {
+        Project owner = project.getRootProject().findProject(sourceRoot.projectPath());
+        if (owner == null) {
+            return false;
+        }
+        Path projectDirectory = normalizedPath(owner.getProjectDir());
+        Path sourceRootPath = Path.of(sourceRoot.path()).toAbsolutePath().normalize();
+        if (!sourceRootPath.startsWith(projectDirectory)) {
+            return false;
+        }
+        Path relativePath = projectDirectory.relativize(sourceRootPath);
+        if (relativePath.getNameCount() == 0) {
+            return false;
+        }
+        String firstSegment = relativePath.getName(0).toString();
+        return "build".equals(firstSegment) || ".gradle".equals(firstSegment);
     }
 
     private static List<IndexJavaReferencesTask.ClasspathEntrySpec> classpathEntries(Project project, SourceSet sourceSet) {

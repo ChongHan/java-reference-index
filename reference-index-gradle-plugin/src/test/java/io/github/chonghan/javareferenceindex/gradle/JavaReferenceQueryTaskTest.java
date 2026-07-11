@@ -246,7 +246,8 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
         assertThat(result.getOutput())
             .contains("source_project,source_path,target_origin,target_path")
             .contains(":app,app/src/main/java/app/App.java,source,app/src/main/java/app/Helper.java");
-        assertThat(projectDir.resolve("empty/build/reference-index/main-references.csv")).doesNotExist();
+        assertThat(referencesCsv(projectDir.resolve("empty")))
+            .containsExactly("source_project,source_path,target_origin,target_project,target_path,reference_symbol");
     }
 
     @Test
@@ -262,6 +263,7 @@ class JavaReferenceQueryTaskTest extends GradlePluginTestKit {
         assertThat(result.task(":empty:javaReferenceQuery").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.getOutput())
             .contains("rows\n0");
-        assertThat(projectDir.resolve("empty/build/reference-index/main-references.csv")).doesNotExist();
+        assertThat(referencesCsv(projectDir.resolve("empty")))
+            .containsExactly("source_project,source_path,target_origin,target_project,target_path,reference_symbol");
     }
 }

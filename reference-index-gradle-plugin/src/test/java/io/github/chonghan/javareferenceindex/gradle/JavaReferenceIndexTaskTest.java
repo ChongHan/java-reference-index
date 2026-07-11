@@ -3,7 +3,9 @@ package io.github.chonghan.javareferenceindex.gradle;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.Test;
@@ -176,6 +178,71 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
     }
 
     @Test
+    void javaReferenceIndex_afterAllSourcesAreRemoved_replacesStaleCsvWithHeader() throws IOException {
+        copyFixture("single-project");
+
+        var initialResult = gradle("javaReferenceIndex");
+        Files.delete(projectDir.resolve("src/main/java/example/App.java"));
+        Files.delete(projectDir.resolve("src/main/java/example/Helper.java"));
+        var changedResult = gradle("javaReferenceIndex");
+
+        assertThat(initialResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(changedResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir))
+            .containsExactly("source_project,source_path,target_origin,target_project,target_path,reference_symbol");
+    }
+
+    @Test
+    void javaReferenceIndex_afterSourceSetIsRemoved_deletesObsoleteCsv() throws IOException {
+        copyFixture("single-project");
+        Path buildScript = projectDir.resolve("build.gradle.kts");
+        String originalBuildScript = Files.readString(buildScript);
+        Files.writeString(
+            buildScript,
+            """
+
+            sourceSets.create("extra")
+            """,
+            StandardOpenOption.APPEND
+        );
+        Path extraSource = projectDir.resolve("src/extra/java/example/Extra.java");
+        Files.createDirectories(extraSource.getParent());
+        Files.writeString(extraSource, "package example; public class Extra {}");
+
+        var initialResult = gradle("javaReferenceIndex");
+        assertThat(projectDir.resolve("build/reference-index/extra-references.csv")).isRegularFile();
+        Files.writeString(buildScript, originalBuildScript);
+        var changedResult = gradle("javaReferenceIndex");
+
+        assertThat(initialResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(changedResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(projectDir.resolve("build/reference-index/main-references.csv")).isRegularFile();
+        assertThat(projectDir.resolve("build/reference-index/extra-references.csv")).doesNotExist();
+    }
+
+    @Test
+    void javaReferenceIndex_afterDependencySourceMoves_reindexesTargetPath() throws IOException {
+        copyFixture("multi-project");
+
+        var initialResult = gradle(":app:javaReferenceIndex");
+        assertThat(referencesCsv(projectDir.resolve("app")))
+            .contains(":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType");
+        Path originalSource = projectDir.resolve("lib/src/main/java/lib/LibraryType.java");
+        Path movedSource = projectDir.resolve("lib/src/main/java/moved/LibraryType.java");
+        Files.createDirectories(movedSource.getParent());
+        Files.move(originalSource, movedSource);
+        var changedResult = gradle(":app:javaReferenceIndex");
+
+        assertThat(initialResult.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(changedResult.task(":app:javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir.resolve("app")))
+            .containsExactly(
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
+                ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/moved/LibraryType.java,lib.LibraryType"
+            );
+    }
+
+    @Test
     void javaReferenceIndex_withExternalDependency_writesBinaryReference() throws IOException {
         copyFixture("external-dependency");
 
@@ -231,6 +298,60 @@ class JavaReferenceIndexTaskTest extends GradlePluginTestKit {
             .containsExactly(
                 "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
                 ":,src/test/java/example/GeneratedTypeUsage.java,source,:,build/generated-src/example/generated/GeneratedType.java,example.generated.GeneratedType"
+            );
+    }
+
+    @Test
+    void javaReferenceIndex_usesJavaCompileLanguageSettingsAndEncoding() throws IOException {
+        copyFixture("single-project");
+        Path buildScript = projectDir.resolve("build.gradle.kts");
+        String originalBuildScript = Files.readString(buildScript);
+        Files.writeString(
+            buildScript,
+            originalBuildScript + """
+
+            tasks.withType<JavaCompile>().configureEach {
+                sourceCompatibility = "1.8"
+                targetCompatibility = "1.8"
+                options.encoding = "UTF-16"
+            }
+            """
+        );
+        Files.delete(projectDir.resolve("src/main/java/example/Helper.java"));
+        Files.writeString(
+            projectDir.resolve("src/main/java/example/_.java"),
+            "package example; public class _ {}",
+            StandardCharsets.UTF_16
+        );
+        Files.writeString(
+            projectDir.resolve("src/main/java/example/App.java"),
+            "package example; public class App { private final _ value = new _(); }",
+            StandardCharsets.UTF_16
+        );
+
+        var sourceLevelResult = gradle("javaReferenceIndex");
+        Files.writeString(
+            buildScript,
+            originalBuildScript + """
+
+            tasks.withType<JavaCompile>().configureEach {
+                sourceCompatibility = "21"
+                targetCompatibility = "21"
+                options.release.set(8)
+                options.encoding = "UTF-16"
+            }
+            """
+        );
+        var releaseResult = gradle("javaReferenceIndex");
+
+        assertThat(sourceLevelResult.task(":compileJava").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(sourceLevelResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(releaseResult.task(":compileJava").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(releaseResult.task(":javaReferenceIndex").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(referencesCsv(projectDir))
+            .containsExactly(
+                "source_project,source_path,target_origin,target_project,target_path,reference_symbol",
+                ":,src/main/java/example/App.java,source,:,src/main/java/example/_.java,example._"
             );
     }
 

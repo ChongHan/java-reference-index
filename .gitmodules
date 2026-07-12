@@ -4,3 +4,6 @@
 [submodule "reference-index-gradle-plugin/src/integrationTest/fixtures/real-world-projects/aeron"]
 	path = reference-index-gradle-plugin/src/integrationTest/fixtures/real-world-projects/aeron
 	url = https://github.com/aeron-io/aeron.git
+[submodule "reference-index-gradle-plugin/src/integrationTest/fixtures/real-world-projects/disruptor"]
+	path = reference-index-gradle-plugin/src/integrationTest/fixtures/real-world-projects/disruptor
+	url = https://github.com/LMAX-Exchange/disruptor.git

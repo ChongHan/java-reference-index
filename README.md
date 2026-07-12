@@ -4,11 +4,7 @@
 
 Build a queryable Java reference map for coding agents.
 
-`java-reference-index` is a Gradle plugin that parses Java source with Eclipse JDT, resolves referenced types to source files or binary dependencies, writes CSV indexes, and queries those indexes with DuckDB SQL.
-
-The CSV can also be collapsed into a directed file graph. Coding agents can run standard graph analysis on that graph to identify entrypoints, coordinators, core APIs, and other read-first files in large monorepos.
-
-Use it to answer questions such as:
+This Gradle plugin parses Java with Eclipse JDT, resolves type references, writes CSV indexes, and queries them with DuckDB SQL. It can answer questions such as:
 
 - What source files does this Java file reference?
 - Who directly references this source file?
@@ -87,67 +83,91 @@ Which files reference a symbol by name?
 
 ## Architecture Discovery
 
-The CSV can be collapsed into a directed file graph:
+Treat source references as a directed file graph: `A.java -> B.java` means that `A.java` references a type in `B.java`.
 
-```text
-A.java -> B.java
-```
+- **Out-degree** finds coordinators and entrypoint candidates.
+- **In-degree** finds foundational and high-blast-radius files, but often favors utilities.
+- **Directed betweenness** finds bridges and dependency choke points.
 
-where `A.java` references one or more types declared in `B.java`.
-
-Export production source-file edges:
+Export distinct production edges:
 
 ```bash
 ./gradlew -q :javaReferenceQuery -Psql="
-select distinct
-  source_project,
-  source_path,
-  target_project,
-  target_path
+select distinct source_project, source_path, target_project, target_path
 from java_references
 where target_origin = 'source'
-  and target_path <> ''
-  and source_path like '%/src/main/java/%'
-  and target_path like '%/src/main/java/%'
+  and (source_path like 'src/main/java/%' or source_path like '%/src/main/java/%')
+  and (target_path like 'src/main/java/%' or target_path like '%/src/main/java/%')
+order by source_project, source_path, target_project, target_path
 " > java-reference-edges.csv
 ```
 
-For monorepos, run graph algorithms on the whole exported edge list, then report results for the selected subproject. A standard choice is [HITS](https://en.wikipedia.org/wiki/HITS_algorithm):
+Install [NetworkX](https://networkx.org/) and save the following as `analyze-reference-graph.py`:
 
-- **Hubs**: files that reference important files; useful entrypoint/coordinator candidates.
-- **Authorities**: files referenced by important files; useful core API or shared concept candidates.
-
-Example from Aeron, using the whole repo graph and reporting only `:aeron-driver`.
-
-HITS hubs:
-
-```text
-1   aeron-driver/src/main/java/io/aeron/driver/DriverConductor.java
-2   aeron-driver/src/main/java/io/aeron/driver/Configuration.java
-3   aeron-driver/src/main/java/io/aeron/driver/MediaDriver.java
-4   aeron-driver/src/main/java/io/aeron/driver/NetworkPublication.java
-5   aeron-driver/src/main/java/io/aeron/driver/media/SendChannelEndpoint.java
-6   aeron-driver/src/main/java/io/aeron/driver/PublicationParams.java
-7   aeron-driver/src/main/java/io/aeron/driver/SubscriptionParams.java
-8   aeron-driver/src/main/java/io/aeron/driver/media/ReceiveChannelEndpoint.java
-9   aeron-driver/src/main/java/io/aeron/driver/IpcPublication.java
-10  aeron-driver/src/main/java/io/aeron/driver/media/UdpChannel.java
+```bash
+python3 -m pip install networkx
 ```
 
-HITS authorities:
+```python
+#!/usr/bin/env python3
+import argparse
+import csv
+import networkx as nx
 
-```text
-1   aeron-driver/src/main/java/io/aeron/driver/MediaDriver.java
-2   aeron-driver/src/main/java/io/aeron/driver/Configuration.java
-3   aeron-driver/src/main/java/io/aeron/driver/ThreadingMode.java
-4   aeron-driver/src/main/java/io/aeron/driver/media/UdpChannel.java
-5   aeron-driver/src/main/java/io/aeron/driver/DutyCycleTracker.java
-6   aeron-driver/src/main/java/io/aeron/driver/status/SystemCounterDescriptor.java
-7   aeron-driver/src/main/java/io/aeron/driver/status/SystemCounters.java
-8   aeron-driver/src/main/java/io/aeron/driver/media/ReceiveChannelEndpoint.java
-9   aeron-driver/src/main/java/io/aeron/driver/ReceiveChannelEndpointSupplier.java
-10  aeron-driver/src/main/java/io/aeron/driver/SendChannelEndpointSupplier.java
+parser = argparse.ArgumentParser()
+parser.add_argument("csv_file")
+parser.add_argument("--project", help="include only internal edges of this Gradle project")
+parser.add_argument("--limit", type=int, default=20)
+args = parser.parse_args()
+
+graph = nx.DiGraph()
+with open(args.csv_file, newline="") as input_file:
+    for row in csv.DictReader(input_file):
+        if args.project and not (
+            row["source_project"] == args.project == row["target_project"]
+        ):
+            continue
+        graph.add_edge(
+            (row["source_project"], row["source_path"]),
+            (row["target_project"], row["target_path"]),
+        )
+
+
+def show(name, scores):
+    ranked = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+    print(f"\n{name}")
+    for (project, path), score in ranked[:args.limit]:
+        print(f"{score:.6g}\t{project}\t{path}")
+
+
+show("out-degree", dict(graph.out_degree()))
+show("in-degree", dict(graph.in_degree()))
+show("directed betweenness", nx.betweenness_centrality(graph))
 ```
+
+Analyze one project, or omit `--project` for the whole repository:
+
+```bash
+python3 analyze-reference-graph.py java-reference-edges.csv --project :aeron-driver --limit 10
+```
+
+NetworkX uses Brandes' algorithm for unweighted betweenness. Exact calculation costs `O(VE)`; degree rankings are cheaper for large graphs. Keep the graph directed—adding reverse edges changes the metric and tends to promote shared utilities.
+
+Results from the pinned fixtures:
+
+| Project and metric | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Agrona out-degree | `CountersManager` | `ManyToOneRingBuffer` | `OneToOneRingBuffer` | `AbstractMutableDirectBuffer` | `Object2IntHashMap` |
+| Agrona in-degree | `BitUtil` | `DirectBuffer` | `MutableDirectBuffer` | `AtomicBuffer` | `UnsafeApi` |
+| Agrona betweenness | `DirectBuffer` | `SystemUtil` | `AtomicCounter` | `CountersManager` | `UnsafeBuffer` |
+| Aeron Driver out-degree | `DriverConductor` | `MediaDriver` | `PublicationImage` | `NetworkPublication` | `Configuration` |
+| Aeron Driver in-degree | `UdpChannel` | `MediaDriver` | `ReceiveChannelEndpoint` | `Configuration` | `FlowControl` |
+| Aeron Driver betweenness | `MediaDriver` | `DriverConductor` | `Configuration` | `FlowControl` | `UdpChannel` |
+| Disruptor out-degree | `Disruptor` | `RingBuffer` | `BatchEventProcessor` | `EventHandlerGroup` | `AbstractSequencer` |
+| Disruptor in-degree | `Sequence` | `SequenceBarrier` | `WaitStrategy` | `AlertException` | `EventProcessor` |
+| Disruptor betweenness | `RingBuffer` | `Sequencer` | `BatchEventProcessor` | `AbstractSequencer` | `SequenceBarrier` |
+
+Use out-degree as a read-first view, in-degree as a change-carefully view, and betweenness to find architectural bridges. Exclude samples, benchmarks, generated code, and test-support projects when they are not relevant.
 
 ## Table Shape
 
@@ -181,16 +201,6 @@ Rows are source-file to target-type reference rows. Source references to types d
 | `javaReferenceIndex` | Each project with the plugin applied | Build CSV indexes for that project only. |
 
 Use `:javaReferenceQuery` from the root. Without the leading `:`, Gradle can run every matching task in the root and subprojects.
-
-## How It Works
-
-1. The Gradle plugin collects Java source roots and resolved compile classpath entries for each source set.
-2. The core indexer batch-parses Java source with Eclipse JDT and resolves type bindings.
-3. Source references are recorded when the target type is available as source in the current project or a project dependency.
-4. Binary references are recorded when the target type resolves to an external dependency or compiled classpath entry.
-5. CSV files are written under each project's `build/reference-index/` and loaded into DuckDB by `javaReferenceQuery`.
-
-Source references are preferred over binary references when both are available.
 
 ## Behavior Notes
 

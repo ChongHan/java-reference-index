@@ -25,17 +25,12 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
     static final String SCHEMA = "source_project, source_path, target_origin, target_project, target_path, reference_symbol";
     static final String COLUMN_MEANING =
         "source_project/source_path identify the referencing file; target_origin is source, binary, or unresolved; "
-            + "target_project is the target Gradle project path or library coordinate; "
-            + "target_path is the referenced source path for source references and empty for binary references; "
-            + "reference_symbol is the referenced Java symbol name";
-    static final String SOURCE_EXAMPLE_ROW =
-        ":app,app/src/main/java/app/App.java,source,:lib,lib/src/main/java/lib/LibraryType.java,lib.LibraryType";
-    static final String BINARY_EXAMPLE_ROW =
-        ":app,app/src/main/java/app/App.java,binary,org.agrona:agrona:2.4.1,,org.agrona.DirectBuffer";
+            + "target_project identifies the target project or dependency; target_path is set for source targets; "
+            + "reference_symbol is the resolved type name";
     static final String REFERENCES_QUERY =
         "select target_project, target_path, reference_symbol from java_references where source_path = 'app/src/main/java/app/App.java'";
     static final String BLAST_RADIUS_QUERY =
-        "select source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'";
+        "select distinct source_project, source_path from java_references where target_path = 'lib/src/main/java/lib/LibraryType.java'";
 
     /**
      * Creates the Java reference query task.
@@ -57,24 +52,12 @@ public abstract class QueryJavaReferencesTask extends DefaultTask {
             Table: %s
             Schema: %s
             Columns: %s.
-            Source row: %s
-            Binary row: %s
-            Use -q for clean query output without Gradle task noise.
-            Pass SQL with the Gradle property -Psql.
-            Repo-wide query from root: ./gradlew -q :javaReferenceQuery -Psql="select * from java_references limit 20"
-            Root query depends on :javaReferenceIndexAll, the root-only aggregate index task.
-            Use the leading ':' from root; otherwise Gradle can run every javaReferenceQuery task in root and subprojects.
-            What this file references: ./gradlew -q :javaReferenceQuery -Psql="%s"
-            Who references this file: ./gradlew -q :javaReferenceQuery -Psql="%s"
-            """.formatted(
-                TABLE_NAME,
-                SCHEMA,
-                COLUMN_MEANING,
-                SOURCE_EXAMPLE_ROW,
-                BINARY_EXAMPLE_ROW,
-                REFERENCES_QUERY,
-                BLAST_RADIUS_QUERY
-            );
+            Run from the root with :javaReferenceQuery; the leading ':' avoids running matching subproject tasks.
+            Use -q for clean CSV output. The root query refreshes indexes automatically.
+            Example: ./gradlew -q :javaReferenceQuery -Psql="select * from java_references limit 20"
+            References from a file: ./gradlew -q :javaReferenceQuery -Psql="%s"
+            References to a file: ./gradlew -q :javaReferenceQuery -Psql="%s"
+            """.formatted(TABLE_NAME, SCHEMA, COLUMN_MEANING, REFERENCES_QUERY, BLAST_RADIUS_QUERY);
     }
 
     /**
